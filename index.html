@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <style type="text/css">
+        div{
+            border: 2px black solid;
+            width: 600px;
+            height: 600px;
+            margin: 50px auto;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <canvas width="600" height="600" id="canvasOne"></canvas>
+</div>
+<script type="text/javascript">
+    //获得画布
+    var myCanvas = document.getElementById("canvasOne");
+    var cxt = myCanvas.getContext("2d");
+
+    function clock(){
+        //1.创建日期对象
+        var date = new Date();
+        var hours = date.getHours(); //小时
+        var min = date.getMinutes(); //分
+        var seconds = date.getSeconds(); //秒
+        //三元运算符
+        //true:false ? true false
+        hours = hours>12 ? hours-12:hours;
+        //hours+=(min/60); //算出当前小时
+        /*alert(hours);
+         alert(myCanvas.height);
+         alert(myCanvas.width);*/
+        //更新画面
+        cxt.clearRect(0,0,myCanvas.height,myCanvas.width);
+
+        cxt.beginPath();
+        cxt.lineWidth = "7";
+        cxt.arc(300,300,200,0,Math.PI*2,true);
+        cxt.strokeStyle = "blue";
+        cxt.stroke();
+        cxt.closePath();
+
+        for(var i = 0; i < 12; i++){
+            for(var j = 0; j < 60; j++){
+                cxt.save();
+                cxt.translate(300,300); //设置圆的中心
+                cxt.rotate(6*j*Math.PI/180); //圆的弧度
+                cxt.beginPath();
+                cxt.moveTo(0,-180);
+                cxt.lineTo(0,-190);
+                cxt.lineWidth = "6";
+                cxt.strokeStyle = "coral";
+                cxt.stroke();
+                cxt.closePath();
+                cxt.restore();
+            }
+            cxt.save();
+            cxt.translate(300,300); //设置圆的中心
+            cxt.rotate(30*i*Math.PI/180); //圆的弧度
+            cxt.beginPath();
+            cxt.moveTo(0,-170);
+            cxt.lineTo(0,-195);
+            cxt.lineWidth = "7";
+            cxt.strokeStyle = "coral";
+            cxt.stroke();
+            cxt.closePath();
+            cxt.restore();
+        }
+        //圆点
+        cxt.save();
+        cxt.translate(300,300);
+        cxt.beginPath();
+        cxt.arc(0,0,6,0,Math.PI*2,true);
+        cxt.fillStyle = "black";
+        cxt.fill();
+        cxt.closePath();
+        cxt.restore();
+
+        //时针
+        cxt.save();
+        cxt.translate(300,300);
+        cxt.beginPath();
+
+        cxt.rotate(hours*30*Math.PI/180); //弧形
+        cxt.lineWidth = "5";
+        cxt.strokeStyle = "red";
+        cxt.moveTo(0,0);
+        cxt.lineTo(0,-100);
+
+        cxt.stroke();
+        cxt.closePath();
+        cxt.restore();
+        //分针
+        cxt.save();
+        cxt.translate(300,300);
+        cxt.beginPath();
+        cxt.moveTo(0,0);
+        cxt.rotate(min*6*Math.PI/180); //弧形
+        cxt.lineTo(0,-140);
+        cxt.lineWidth = "4";
+        cxt.strokeStyle = "green";
+        cxt.stroke();
+        cxt.closePath();
+        cxt.restore();
+        //秒针
+        cxt.save();
+        cxt.translate(300,300);
+        cxt.beginPath();
+        cxt.rotate(seconds*6*Math.PI/180);
+        cxt.moveTo(0,0);
+        cxt.lineTo(0,-160);
+        cxt.lineWidth = "3";
+        cxt.strokeStyle = "blue";
+        cxt.stroke();
+        cxt.closePath();
+        cxt.restore();
+    }
+    window.setInterval(clock,1000);
+
+
+</script>
+</body>
+</html>
