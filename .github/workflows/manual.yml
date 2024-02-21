@@ -16,7 +16,7 @@ jobs:
     - name: Update paper list
       run: |
         cd get-the-report
-        python automl_page.py
+        python get.py
     - name: commit
       run: |
         git config --global user.email 1435679023@qq.com
