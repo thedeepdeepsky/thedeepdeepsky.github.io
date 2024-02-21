@@ -15,6 +15,7 @@ jobs:
         python-version: 3.7
     - name: Update paper list
       run: |
+        pip install json
         pip install requests
         cd get-the-report
         python new.py
