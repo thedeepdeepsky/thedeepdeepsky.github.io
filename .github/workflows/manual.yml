@@ -15,12 +15,13 @@ jobs:
         python-version: 3.7
     - name: Update paper list
       run: |
+        pip install requests
         cd get-the-report
         python new.py
     - name: commit
       run: |
-        git config --global user.email 1435679023@qq.com
-        git config --global user.name marsggbo
+        git config --global user.email 0@qq.com
+        git config --global user.name 0
         git add .
         git commit -m "update" -a
     - name: Push changes
