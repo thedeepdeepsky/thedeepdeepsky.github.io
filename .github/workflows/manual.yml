@@ -16,7 +16,7 @@ jobs:
     - name: Update paper list
       run: |
         cd get-the-report
-        python get.py
+        python new.py
     - name: commit
       run: |
         git config --global user.email 1435679023@qq.com
