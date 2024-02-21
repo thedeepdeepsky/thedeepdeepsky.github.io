@@ -24,6 +24,6 @@ jobs:
           curl "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=margarita" --output "2.json"
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add 2.json
+          git add .
           git commit -m "update"
           git push
