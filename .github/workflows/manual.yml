@@ -20,4 +20,4 @@ jobs:
     steps:
     # Runs a single command using the runners shell
     - name: Send greeting
-      run: curl "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=margarita"
+      run: curl "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=margarita" --output "1.json"
