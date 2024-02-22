@@ -1,4 +1,4 @@
-name: Python application
+name: Download the report
 
 on: [workflow_dispatch]
 
