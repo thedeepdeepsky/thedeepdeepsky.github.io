@@ -1,0 +1,26 @@
+name: Python application
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: get
+      run: |
+        cd get-the-report
+        curl "https://www.thecocktaildb.com/api/json/v1/1/search.php?s=margarita" --output "new.json"
+        
+    - name: commit
+      run: |
+        git config --global user.email 0@qq.com
+        git config --global user.name 0
+        git add .
+        git commit -m "update" -a
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
