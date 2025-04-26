@@ -3,257 +3,356 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shanghai Daily Weather Charts (Interactive)</title>
-    <!-- Include Plotly.js via CDN -->
-    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+    <title>Shanghai Daily Weather Charts (Highcharts)</title>
+
+    <!-- Include Highcharts Core Library -->
+    <script src="https://code.highcharts.com/11.2.0/highcharts.js"></script>
+    <!-- Include Dark Unica Theme -->
+    <script src="https://code.highcharts.com/11.2.0/themes/dark-unica.js"></script>
+    <!-- Optional: Modules for exporting, accessibility etc. -->
+    <!-- <script src="https://code.highcharts.com/modules/exporting.js"></script> -->
+    <!-- <script src="https://code.highcharts.com/modules/accessibility.js"></script> -->
+
     <style>
-        /* Basic styling */
+        /* Basic page styling - Theme handles chart styling */
         body {
             font-family: sans-serif;
             line-height: 1.6;
             margin: 20px;
+            background-color: #2a2a2b; /* Match Dark Unica background */
+            color: #eee;
         }
         .chart-container {
             margin-bottom: 30px; /* Space between charts */
-            border: 1px solid #eee; /* Optional border */
-            padding: 10px;
+            min-height: 400px; /* Ensure container has height */
+        }
+         .chart-metadata {
+             text-align: center;
+             color: #aaa; /* Lighter grey for metadata */
+             font-size: 0.9em;
+             margin-bottom: 5px;
         }
         .loading-message, .error-message {
             text-align: center;
             font-style: italic;
-            color: #666;
+            color: #aaa;
             padding: 20px;
         }
         h1, h2 {
             text-align: center;
+            color: #eee; /* Ensure headings are light */
+            font-weight: normal; /* Match example style */
         }
+         a { color: #7cb5ec; } /* Link color from Dark Unica */
+
+        /* Highcharts Tooltip Customization (Optional) */
+        .highcharts-tooltip>span {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 4px;
+            color: #f0f0f0;
+        }
+
     </style>
 </head>
 <body>
 
-    <h1>Shanghai Daily Weather Forecast Charts (Interactive)</h1>
-    <p style="text-align: center;">
-        Charts are updated daily. Hover over points for details, click and drag to zoom.
-        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>.
+    <h1>Shanghai Daily Weather Forecast Charts</h1>
+     <p style="text-align: center; color: #aaa;">
+        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Charts updated daily.
     </p>
 
     <!-- Div to show loading/error messages -->
     <div id="status-message" class="loading-message">Loading chart data...</div>
 
-    <!-- Chart Containers - Add one div for each chart you want -->
-    <div id="temperature-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+    <!-- Chart Containers - Include metadata div above chart div -->
+    <!-- IDs must match those used in the JavaScript -->
+
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="temperature-chart" class="chart-container"></div>
     </div>
 
-    <div id="apparent-temp-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+    <div class="chart-wrapper">
+         <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="apparent-temp-chart" class="chart-container"></div>
     </div>
 
-    <div id="precip-prob-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="precip-prob-chart" class="chart-container"></div>
     </div>
 
-     <div id="precip-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+     <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="precip-chart" class="chart-container"></div> <!-- Will be column chart -->
     </div>
 
-    <div id="wind-speed-10m-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="wind-speed-10m-chart" class="chart-container"></div>
     </div>
 
-    <div id="wind-gusts-10m-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+    <div class="chart-wrapper">
+         <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="wind-gusts-10m-chart" class="chart-container"></div>
     </div>
 
-    <div id="cloud-cover-chart" class="chart-container">
-        <!-- Plotly will render the chart here -->
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m above sea level</div>
+        <div id="cloud-cover-chart" class="chart-container"></div>
     </div>
 
-    <!-- Add more divs with unique IDs for other charts as needed -->
-    <!-- e.g., <div id="wind-direction-chart" class="chart-container"></div> -->
+    <!-- Add more chart wrappers (metadata + container) as needed -->
 
 
     <script>
-        // URL to the raw weather_data.json file in your other repository
         const weatherDataUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/weather_data.json';
         const statusDiv = document.getElementById('status-message');
 
-        // Function to create a Plotly chart
-        function createPlotlyChart(divId, data, layout) {
+        // --- Common Highcharts Options ---
+        // These will be merged with specific chart options
+        const commonOptions = {
+            chart: {
+                zoomType: 'x', // Allow zooming on the X-axis (time)
+                type: 'spline' // Default to smooth line chart
+            },
+            title: { text: null }, // Title set via HTML H2 or specific options
+            subtitle: { text: null },
+            xAxis: {
+                type: 'datetime', // X-axis represents time
+                // Customize time formatting on the axis labels if needed
+                 dateTimeLabelFormats: {
+                     hour: '%H:%M',
+                     day: '%e. %b',
+                     week: '%e. %b',
+                     month: '%b \'%y',
+                     year: '%Y'
+                 },
+                // labels: { format: '{value:%e %b %H:%M}' } // Example format
+                 crosshair: false // Example doesn't show vertical crosshair on axis hover
+            },
+            yAxis: {
+                title: { text: null }, // Y-axis title set per chart
+                // opposite: true, // Example shows Y-axis on the left
+                 gridLineDashStyle: 'dash', // Match visual style if needed
+                 gridLineColor: '#444444', // Ensure grid is visible on dark theme
+                 zeroline: false
+            },
+            tooltip: {
+                shared: true, // Show values for all series at one time point
+                crosshairs: true, // Show crosshair lines pointing to the hovered point
+                // Consistent Tooltip Formatting:
+                 headerFormat: '<span style="font-size: 10px">{point.key:%A %d %b, %H:%M}</span><br/>', // Date/Time header
+                // pointFormat is set per series below
+                 backgroundColor: 'rgba(0, 0, 0, 0.8)', // Darker tooltip background
+                 borderColor: '#555',
+                 style: { color: '#f0f0f0' }
+            },
+            legend: {
+                enabled: true, // Show legend
+                layout: 'horizontal',
+                align: 'right',
+                verticalAlign: 'top',
+                // x: -10, // Adjust position if needed
+                 y: -10, // Adjust position from top
+                floating: true,
+                 borderWidth: 0,
+                itemStyle: { color: '#E0E0E3' }, // Legend text color
+                itemHoverStyle: { color: '#FFF' },
+                itemHiddenStyle: { color: '#606063' }
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false, // Disable markers by default
+                        radius: 3,
+                        states: {
+                            hover: { enabled: true } // Enable markers only on hover
+                        }
+                    },
+                     lineWidth: 2 // Standard line width
+                },
+                spline: {
+                    // Spline-specific options if needed
+                },
+                 column: { // Options for precipitation bar chart
+                    pointPadding: 0.1,
+                    borderWidth: 0,
+                    groupPadding: 0.1
+                }
+            },
+            credits: { // Hide the Highcharts.com link
+                enabled: false
+            }
+            // Note: Colors are largely handled by the dark-unica theme
+        };
+
+        // --- Function to Create Highcharts Chart ---
+        function createHighchart(containerId, seriesArray, specificOptions) {
+             // Basic Deep Merge (sufficient for this structure)
+             const mergedOptions = JSON.parse(JSON.stringify(commonOptions)); // Simple deep copy
+
+             // Merge chart options
+             Object.assign(mergedOptions.chart, specificOptions.chart || {});
+
+            // Merge yAxis (assuming single yAxis for simplicity here)
+             if (specificOptions.yAxis) {
+                 Object.assign(mergedOptions.yAxis, specificOptions.yAxis);
+             }
+             // Merge title/subtitle
+              mergedOptions.title = specificOptions.title || mergedOptions.title;
+              mergedOptions.subtitle = specificOptions.subtitle || mergedOptions.subtitle;
+
+            // Set the series data
+            mergedOptions.series = seriesArray;
+
             try {
-                Plotly.newPlot(divId, data, layout, {responsive: true});
-                 // Hide loading message if it's the first chart successfully created
+                Highcharts.chart(containerId, mergedOptions);
                 if (statusDiv.classList.contains('loading-message')) {
-                     statusDiv.style.display = 'none';
+                    statusDiv.style.display = 'none';
                 }
             } catch (error) {
-                console.error(`Error creating chart ${divId}:`, error);
-                 // Optionally display error in the specific chart div
-                 const chartDiv = document.getElementById(divId);
-                 if(chartDiv) chartDiv.innerHTML = `<p class="error-message">Could not load chart: ${error.message}</p>`;
-                  // Show general error if loading message still visible
-                  if (statusDiv.style.display !== 'none') {
-                     statusDiv.textContent = 'Error loading one or more charts. Check console for details.';
-                     statusDiv.className = 'error-message'; // Change style
-                 }
+                console.error(`Error creating chart ${containerId}:`, error);
+                const chartDiv = document.getElementById(containerId);
+                if(chartDiv) chartDiv.innerHTML = `<p class="error-message">Could not load chart: ${error.message}</p>`;
+                if (statusDiv.style.display !== 'none') {
+                    statusDiv.textContent = 'Error loading one or more charts. Check console for details.';
+                    statusDiv.className = 'error-message';
+                }
             }
         }
 
-        // Fetch the weather data when the page loads
+         // --- Function to transform Open-Meteo data to Highcharts format ---
+        function transformData(times, values) {
+             if (!times || !values || times.length !== values.length) {
+                 console.warn("Data transformation failed: Mismatched lengths or missing data.");
+                 return [];
+             }
+             return times.map((timeStr, index) => {
+                 const timestamp = Date.parse(timeStr); // Convert ISO string to JS timestamp (ms)
+                 const value = values[index];
+                 // Handle potential null values from API if necessary
+                 return [timestamp, value === null ? null : Number(value)];
+             }).sort((a, b) => a[0] - b[0]); // Ensure data is sorted by time
+         }
+
+        // --- Fetch Data and Create Charts ---
         fetch(weatherDataUrl)
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json(); // Parse the JSON from the response
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
             })
             .then(data => {
-                console.log("Weather data fetched successfully:", data); // For debugging
+                console.log("Weather data fetched successfully:", data);
 
-                // --- Check if data structure is valid ---
                 if (!data || !data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
                    throw new Error('Fetched data is missing essential hourly time information.');
                 }
                 const times = data.hourly.time; // Common X-axis data
 
                 // --- Create Temperature Chart ---
-                if (data.hourly.temperature_2m) {
-                    const tempData = [{
-                        x: times,
-                        y: data.hourly.temperature_2m,
-                        mode: 'lines+markers',
-                        type: 'scatter',
-                        name: 'Temperature',
-                        hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Temp: %{y}°C<extra></extra>' // Custom hover text
-                    }];
-                    const tempLayout = {
-                        title: 'Hourly Temperature Forecast (°C)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Temperature (°C)', rangemode: 'tozero' } // Ensure y-axis starts at 0 if appropriate or adjust
-                    };
-                    createPlotlyChart('temperature-chart', tempData, tempLayout);
-                }
+                 if (data.hourly.temperature_2m) {
+                     const tempDataPoints = transformData(times, data.hourly.temperature_2m);
+                     const tempSeries = [{
+                         name: 'temperature_2m',
+                         data: tempDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y:.1f} °C</b><br/>' },
+                         // color: '#7cb5ec' // Optional: Override theme color
+                     }];
+                     const tempOptions = { yAxis: { title: { text: '°C' } } };
+                     createHighchart('temperature-chart', tempSeries, tempOptions);
+                 }
 
-                // --- Create Apparent Temperature Chart ---
+                 // --- Create Apparent Temperature Chart ---
                  if (data.hourly.apparent_temperature) {
-                    const appTempData = [{
-                        x: times,
-                        y: data.hourly.apparent_temperature,
-                        mode: 'lines+markers',
-                        type: 'scatter',
-                        name: 'Apparent Temp',
-                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Apparent Temp: %{y}°C<extra></extra>'
-                    }];
-                    const appTempLayout = {
-                        title: 'Hourly Apparent Temperature Forecast (°C)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Temperature (°C)' }
-                    };
-                    createPlotlyChart('apparent-temp-chart', appTempData, appTempLayout);
-                }
+                     const appTempDataPoints = transformData(times, data.hourly.apparent_temperature);
+                     const appTempSeries = [{
+                         name: 'apparent_temperature',
+                         data: appTempDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y:.1f} °C</b><br/>' }
+                     }];
+                     const appTempOptions = { yAxis: { title: { text: '°C' } } };
+                     createHighchart('apparent-temp-chart', appTempSeries, appTempOptions);
+                 }
 
-                // --- Create Precipitation Probability Chart ---
-                if (data.hourly.precipitation_probability) {
-                    const precipProbData = [{
-                        x: times,
-                        y: data.hourly.precipitation_probability,
-                        mode: 'lines+markers', // Or type: 'bar' might be suitable too
-                        type: 'scatter',
-                        name: 'Probability',
-                        hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Precip. Prob: %{y}%<extra></extra>'
-                    }];
-                    const precipProbLayout = {
-                        title: 'Hourly Precipitation Probability (%)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Probability (%)', range: [0, 100] } // Set Y-axis range 0-100
-                    };
-                    createPlotlyChart('precip-prob-chart', precipProbData, precipProbLayout);
-                }
+                 // --- Create Precipitation Probability Chart ---
+                 if (data.hourly.precipitation_probability) {
+                     const precipProbDataPoints = transformData(times, data.hourly.precipitation_probability);
+                     const precipProbSeries = [{
+                         name: 'precipitation_probability',
+                         data: precipProbDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y} %</b><br/>' }
+                     }];
+                     const precipProbOptions = { yAxis: { title: { text: '%' }, min: 0, max: 100 } }; // Set Y-axis range 0-100
+                     createHighchart('precip-prob-chart', precipProbSeries, precipProbOptions);
+                 }
 
-                 // --- Create Precipitation Chart ---
-                if (data.hourly.precipitation) {
-                    const precipData = [{
-                        x: times,
-                        y: data.hourly.precipitation,
-                        type: 'bar', // Bar chart often better for precipitation amounts
-                        name: 'Precipitation',
-                         marker: { color: 'rgb(31, 119, 180)'}, // Bar color
-                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Precip: %{y} mm<extra></extra>'
-                    }];
-                    const precipLayout = {
-                        title: 'Hourly Precipitation Forecast (mm)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Precipitation (mm)', rangemode: 'tozero' }, // Ensure y-axis starts at 0
-                        bargap: 0.1 // Adjust gap between bars
-                    };
-                    createPlotlyChart('precip-chart', precipData, precipLayout);
-                }
+                 // --- Create Precipitation Chart (Column) ---
+                  if (data.hourly.precipitation) {
+                     const precipDataPoints = transformData(times, data.hourly.precipitation);
+                     const precipSeries = [{
+                         type: 'column', // Override chart type for this series
+                         name: 'precipitation',
+                         data: precipDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y:.1f} mm</b><br/>' }
+                     }];
+                     const precipOptions = {
+                         chart: { type: 'column' }, // Set chart type specifically
+                         yAxis: { title: { text: 'mm' }, min: 0 } // Y-axis starts at 0
+                     };
+                     createHighchart('precip-chart', precipSeries, precipOptions);
+                 }
 
                  // --- Create Wind Speed (10m) Chart ---
                  if (data.hourly.wind_speed_10m) {
-                    const windSpeedData = [{
-                        x: times,
-                        y: data.hourly.wind_speed_10m,
-                        mode: 'lines+markers',
-                        type: 'scatter',
-                        name: 'Wind Speed',
-                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Wind Speed (10m): %{y} km/h<extra></extra>'
-                    }];
-                    const windSpeedLayout = {
-                        title: 'Hourly Wind Speed Forecast (10m, km/h)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Speed (km/h)', rangemode: 'tozero' }
-                    };
-                    createPlotlyChart('wind-speed-10m-chart', windSpeedData, windSpeedLayout);
-                }
+                     const windSpeedDataPoints = transformData(times, data.hourly.wind_speed_10m);
+                     const windSpeedSeries = [{
+                         name: 'wind_speed_10m',
+                         data: windSpeedDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y:.1f} km/h</b><br/>' }
+                     }];
+                     const windSpeedOptions = { yAxis: { title: { text: 'km/h' }, min: 0 } };
+                     createHighchart('wind-speed-10m-chart', windSpeedSeries, windSpeedOptions);
+                 }
 
-                // --- Create Wind Gusts (10m) Chart ---
+                 // --- Create Wind Gusts (10m) Chart ---
                  if (data.hourly.wind_gusts_10m) {
-                    const windGustsData = [{
-                        x: times,
-                        y: data.hourly.wind_gusts_10m,
-                        mode: 'lines+markers',
-                        type: 'scatter',
-                        name: 'Wind Gusts',
-                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Wind Gusts (10m): %{y} km/h<extra></extra>'
-                    }];
-                    const windGustsLayout = {
-                        title: 'Hourly Wind Gusts Forecast (10m, km/h)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Speed (km/h)', rangemode: 'tozero' }
-                    };
-                    createPlotlyChart('wind-gusts-10m-chart', windGustsData, windGustsLayout);
-                }
+                     const windGustsDataPoints = transformData(times, data.hourly.wind_gusts_10m);
+                     const windGustsSeries = [{
+                         name: 'wind_gusts_10m',
+                         data: windGustsDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y:.1f} km/h</b><br/>' }
+                     }];
+                     const windGustsOptions = { yAxis: { title: { text: 'km/h' }, min: 0 } };
+                     createHighchart('wind-gusts-10m-chart', windGustsSeries, windGustsOptions);
+                 }
 
-                // --- Create Cloud Cover Chart (Total) ---
+                 // --- Create Cloud Cover Chart (Total) ---
                  if (data.hourly.cloud_cover) {
-                    const cloudData = [{
-                        x: times,
-                        y: data.hourly.cloud_cover,
-                        mode: 'lines+markers',
-                        type: 'scatter',
-                        name: 'Total Cloud Cover',
-                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Cloud Cover: %{y}%<extra></extra>'
-                    }];
-                    const cloudLayout = {
-                        title: 'Hourly Total Cloud Cover Forecast (%)',
-                        xaxis: { title: 'Time' },
-                        yaxis: { title: 'Cloud Cover (%)', range: [0, 100] }
-                    };
-                    createPlotlyChart('cloud-cover-chart', cloudData, cloudLayout);
-                }
+                     const cloudDataPoints = transformData(times, data.hourly.cloud_cover);
+                     const cloudSeries = [{
+                         name: 'cloud_cover',
+                         data: cloudDataPoints,
+                         tooltip: { pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y} %</b><br/>' }
+                     }];
+                     const cloudOptions = { yAxis: { title: { text: '%' }, min: 0, max: 100 } };
+                     createHighchart('cloud-cover-chart', cloudSeries, cloudOptions);
+                 }
 
-                // --- Add more charts here ---
-                // Example: Rain Chart (similar to precipitation, maybe redundant unless specifically needed)
-                // if (data.hourly.rain) { ... createPlotlyChart(...) ... }
-
+                // --- Add more charts here following the pattern ---
+                // 1. Check if data exists (e.g., data.hourly.wind_direction_10m)
+                // 2. Transform data: const windDirDataPoints = transformData(times, data.hourly.wind_direction_10m);
+                // 3. Define series: const windDirSeries = [{ name: 'wind_direction_10m', data: windDirDataPoints, tooltip: {...} }];
+                // 4. Define specific options: const windDirOptions = { yAxis: { title: { text: '°' }, min:0, max: 360, tickInterval: 45 } }; // Example for direction
+                // 5. Create chart: createHighchart('wind-direction-chart', windDirSeries, windDirOptions); // Ensure matching div ID exists
 
             })
             .catch(error => {
                 console.error('Error fetching or processing weather data:', error);
-                // Display error message on the page
                 statusDiv.textContent = `Failed to load weather data: ${error.message}. Please try again later.`;
-                statusDiv.className = 'error-message'; // Change style
+                statusDiv.className = 'error-message';
             });
     </script>
 
