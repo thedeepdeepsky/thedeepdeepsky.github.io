@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shanghai Hourly Weather Charts (Highcharts Stock Style)</title>
+    <title>Shanghai Weather: Current & Forecast Charts</title>
 
-    <!-- Highcharts Stock -->
+    <!-- Highcharts Stock Library -->
     <script src="https://code.highcharts.com/stock/highstock.js"></script>
-    <!-- Optional Modules -->
+    <!-- Optional Highcharts Modules -->
     <!-- <script src="https://code.highcharts.com/stock/modules/exporting.js"></script> -->
     <!-- <script src="https://code.highcharts.com/stock/modules/accessibility.js"></script> -->
 
@@ -16,9 +16,15 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
-            margin: 20px;
+            margin: 0;
+            padding: 0;
             background-color: #f8f8f8;
             color: #333;
+        }
+        .page-container {
+            max-width: 1200px; /* Limit content width */
+            margin: 0 auto; /* Center content */
+            padding: 20px;
         }
         .chart-container {
             margin-bottom: 30px;
@@ -26,6 +32,7 @@
             border: 1px solid #e6e6e6;
             background-color: #fff;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
         }
          .chart-metadata {
              text-align: center;
@@ -34,8 +41,7 @@
              padding-top: 10px;
              margin-bottom: -5px;
              background-color: #fff; /* Match chart background */
-             /* Prevent metadata from overlapping chart content */
-             position: relative;
+             position: relative; /* Prevent overlap */
              z-index: 2;
         }
         .loading-message, .error-message {
@@ -43,11 +49,16 @@
             font-style: italic;
             color: #888;
             padding: 20px;
+            border: 1px dashed #ddd;
+            margin: 20px 0;
+             background-color: #fff;
         }
-        h1 { text-align: center; color: #333; font-weight: 300; }
-         a { color: #007bff; }
+        h1 { text-align: center; color: #333; font-weight: 300; margin-bottom: 5px; }
+        h2 { text-align: center; color: #444; font-weight: 400; margin-top: 40px; margin-bottom: 15px; }
+         a { color: #007bff; text-decoration: none; }
+         a:hover { text-decoration: underline; }
 
-        /* Tooltip Styling */
+        /* Highcharts Tooltip Styling */
         .highcharts-tooltip>span {
             background: rgba(255, 255, 255, 0.95);
             border: 1px solid #f5a623; /* Orange border */
@@ -56,21 +67,114 @@
             color: #333;
             box-shadow: 1px 1px 4px rgba(0,0,0,0.2);
         }
+
+        /* Current Weather Section Styling */
+        #current-weather-container {
+            background-color: #fff;
+            border: 1px solid #e6e6e6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        #current-weather-container .location {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #current-weather-container .details {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            align-items: center;
+            gap: 15px;
+        }
+        #current-weather-container .detail-item {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+        #current-weather-container .detail-item .value {
+            font-size: 1.4em;
+            font-weight: bold;
+            display: block;
+        }
+         #current-weather-container .detail-item .label {
+            font-size: 0.9em;
+            color: #666;
+            display: block;
+        }
+        #current-weather-container .time {
+            margin-top: 15px;
+            font-size: 0.85em;
+            color: #888;
+        }
+         #current-weather-container .weather-description {
+             font-size: 1.2em;
+             margin-top: 5px;
+             margin-bottom: 5px;
+             font-weight: 500;
+         }
+         hr.section-divider {
+             border: none;
+             border-top: 1px solid #eee;
+             margin: 40px 0;
+         }
+
     </style>
 </head>
 <body>
+<div class="page-container">
 
-    <h1>Shanghai Hourly Weather Forecast</h1>
-     <p style="text-align: center; color: #666;">
-        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Charts updated daily.
+    <h1>Shanghai Weather</h1>
+     <p style="text-align: center; color: #666; margin-top: 0; margin-bottom: 20px;">
+        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Current data updated hourly, charts updated daily.
     </p>
 
-    <!-- Status Message -->
-    <div id="status-message" class="loading-message">Loading chart data...</div>
+    <!-- Current Weather Section -->
+    <div id="current-weather-container" style="display: none;"> <!-- Hidden initially -->
+        <div class="location">Shanghai - Current Conditions</div>
+        <div class="details">
+            <div class="detail-item">
+                <span class="value" id="current-temp">-°C</span>
+                <span class="label">Temperature</span>
+                 <span class="value" id="current-apparent-temp" style="font-size: 1.1em; font-weight: normal;">(Feels like -°C)</span>
+            </div>
+             <div class="detail-item">
+                <span class="value weather-description" id="current-description"></span>
+                 <span class="label">Conditions</span>
+             </div>
+             <div class="detail-item">
+                <span class="value" id="current-humidity">-%</span>
+                <span class="label">Humidity</span>
+            </div>
+            <div class="detail-item">
+                <span class="value" id="current-wind">- km/h</span>
+                <span class="label">Wind</span>
+                <span class="value" id="current-gusts" style="font-size: 1.1em; font-weight: normal;">(Gusts - km/h)</span>
+            </div>
+            <div class="detail-item">
+                <span class="value" id="current-pressure">- hPa</span>
+                <span class="label">Pressure (MSL)</span>
+            </div>
+             <div class="detail-item">
+                <span class="value" id="current-cloud-cover">-%</span>
+                <span class="label">Cloud Cover</span>
+            </div>
+        </div>
+        <div class="time">Last updated: <span id="current-time">-</span></div>
+    </div>
+    <div id="current-weather-error" class="error-message" style="display: none;"></div>
+
+    <hr class="section-divider">
+
+    <h2>Hourly Forecast Charts</h2>
+
+    <!-- Status Message for Charts -->
+    <div id="status-message" class="loading-message">Loading forecast charts...</div>
 
     <!-- Chart Wrappers: Metadata + Container for EACH variable -->
-    <!-- Make sure IDs match the JavaScript -->
-
     <div class="chart-wrapper">
         <div class="chart-metadata">31.22°N 121.46°E 4m - Temperature (2m)</div>
         <div id="temperature_2m-chart" class="chart-container"></div>
@@ -152,54 +256,99 @@
         <div id="freezing_level_height-chart" class="chart-container"></div>
     </div>
 
+</div> <!-- End page-container -->
 
-    <script>
-        const weatherDataUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/weather_data.json';
-        const statusDiv = document.getElementById('status-message');
-        const seriesColor = '#f5a623'; // Default orange color
+<script>
+    // URLs for data files from the weatherdaily repository
+    const forecastDataUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/weather_data.json';
+    const currentWeatherDataFileUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/current_weather.json';
 
-        // --- Function to transform data ---
-        function transformData(times, values) {
-             if (!times || !values || times.length !== values.length) {
-                 console.warn("Data transformation failed: Mismatched lengths or missing data.");
-                 return [];
-             }
-             return times.map((timeStr, index) => {
-                 const timestamp = Date.parse(timeStr);
-                 const value = values[index];
-                 return [timestamp, value === null ? null : Number(value)];
-             }).sort((a, b) => a[0] - b[0]);
+    // DOM Elements for status messages
+    const chartStatusDiv = document.getElementById('status-message');
+    const currentStatusDiv = document.getElementById('current-weather-container');
+    const currentErrorDiv = document.getElementById('current-weather-error');
+
+    // Colors and Settings
+    const seriesColor = '#f5a623'; // Default orange color
+
+    // --- Helper: Weather Code Mapping (WMO Codes) ---
+    const weatherDescriptions = {
+      0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+      45: 'Fog', 48: 'Depositing rime fog',
+      51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+      56: 'Light freezing drizzle', 57: 'Dense freezing drizzle',
+      61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+      66: 'Light freezing rain', 67: 'Heavy freezing rain',
+      71: 'Slight snow fall', 73: 'Moderate snow fall', 75: 'Heavy snow fall',
+      77: 'Snow grains',
+      80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+      85: 'Slight snow showers', 86: 'Heavy snow showers',
+      95: 'Thunderstorm', 96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail'
+    };
+    function getWeatherDescription(code) {
+        return weatherDescriptions[code] ?? 'Unknown'; // Use ?? for nullish coalescing
+    }
+
+    // --- Helper: Wind Direction ---
+    function getWindDirection(degrees) {
+        if (typeof degrees !== 'number') return '';
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const index = Math.round(degrees / 22.5) % 16;
+        return directions[index];
+    }
+
+    // --- Helper: Format Date/Time ---
+     function formatDateTime(isoString) {
+         if (!isoString) return '-';
+         try {
+             const date = new Date(isoString);
+             // Use Intl for better locale formatting if needed, otherwise basic approach:
+             return date.toLocaleString([], {
+                 year: 'numeric', month: 'short', day: 'numeric',
+                 hour: '2-digit', minute: '2-digit'
+             });
+         } catch (e) {
+             console.error("Error formatting date:", e);
+             return isoString; // Fallback
          }
+     }
 
-        // --- Helper Function to Create Highcharts Stock Chart ---
-        function createHighchartStock(options) {
-            const {
-                containerId,
-                seriesData,
-                seriesName,
-                seriesUnit, // e.g., '°C', '%', 'hPa'
-                tooltipValueSuffix = '', // Often same as unit, but flexible
-                tooltipDecimals = 1,
-                yAxisTitle = null,
-                yAxisOptions = {}, // For min, max, tickInterval, etc.
-                chartType = 'line', // Default type
-                color = seriesColor // Default color
+
+    // --- Function to transform forecast data to Highcharts format ---
+    function transformData(times, values) {
+         if (!times || !values || times.length !== values.length) {
+             console.warn("Forecast data transformation failed: Mismatched lengths or missing data.");
+             return [];
+         }
+         return times.map((timeStr, index) => {
+             const timestamp = Date.parse(timeStr);
+             const value = values[index];
+             // Only return valid points (timestamp is a number, value is not null)
+             if (!isNaN(timestamp) && value !== null) {
+                return [timestamp, Number(value)];
+             }
+             return null; // Indicate an invalid point
+         }).filter(point => point !== null) // Remove invalid points
+           .sort((a, b) => a[0] - b[0]); // Ensure data is sorted by time
+     }
+
+    // --- Helper Function to Create Highcharts Stock Chart ---
+    function createHighchartStock(options) {
+          const {
+                containerId, seriesData, seriesName, seriesUnit = '',
+                tooltipValueSuffix = '', tooltipDecimals = 1, yAxisTitle = null,
+                yAxisOptions = {}, chartType = 'line', color = seriesColor
             } = options;
 
             const defaultYAxisOptions = {
                 title: { text: yAxisTitle },
                 labels: {
                     format: `{value}${seriesUnit ? ' ' + seriesUnit.replace('°', '°') : ''}`, // Add unit, handle degree symbol
-                    align: 'right',
-                    x: -5,
-                    style: { color: '#666' }
+                    align: 'right', x: -5, style: { color: '#666' }
                 },
                 opposite: false, // Y Axis on left by default
-                gridLineColor: '#f0f0f0',
-                lineColor: '#e6e6e6',
-                tickColor: '#e6e6e6',
-                // Merge specific options
-                ...yAxisOptions
+                gridLineColor: '#f0f0f0', lineColor: '#e6e6e6', tickColor: '#e6e6e6',
+                ...yAxisOptions // Merge specific options
             };
 
             try {
@@ -207,42 +356,28 @@
                  if (!seriesData || seriesData.length === 0) {
                     console.warn(`Skipping chart ${containerId}: No valid data points.`);
                     const chartDiv = document.getElementById(containerId);
+                    // Only display message if container exists
                     if (chartDiv) chartDiv.innerHTML = `<p class="error-message" style="padding-top: 50px;">Data not available for this variable.</p>`;
-                    return; // Don't create the chart
+                    return false; // Indicate failure
                  }
 
                 Highcharts.stockChart(containerId, {
-                    chart: { backgroundColor: '#ffffff' },
-                    navigator: {
-                        enabled: true, adaptToUpdatedData: true, height: 50,
-                        series: { type: 'line', color: color, lineWidth: 1, marker: { enabled: false } },
-                        handles: { backgroundColor: '#ddeeff', borderColor: '#88aadd' },
-                        maskFill: 'rgba(136, 170, 221, 0.2)',
-                    },
+                    chart: { backgroundColor: '#ffffff', style: { fontFamily: 'inherit' } }, // Inherit font
+                    navigator: { enabled: true, adaptToUpdatedData: true, height: 50, series: { type: 'line', color: color, lineWidth: 1, marker: { enabled: false } }, handles: { backgroundColor: '#ddeeff', borderColor: '#88aadd' }, maskFill: 'rgba(136, 170, 221, 0.2)', },
                     scrollbar: { enabled: true, liveRedraw: false },
                     rangeSelector: { enabled: false },
-                    title: { text: null },
-                    subtitle: { text: null },
-                    xAxis: {
-                        type: 'datetime', ordinal: false,
-                        dateTimeLabelFormats: { hour: '%H:%M', day: '%e. %b', week: '%e. %b', month: '%b \'%y', year: '%Y' },
-                        labels: { style: { color: '#666' } }, lineColor: '#e6e6e6', tickColor: '#e6e6e6'
-                    },
+                    title: { text: null }, subtitle: { text: null },
+                    xAxis: { type: 'datetime', ordinal: false, dateTimeLabelFormats: { hour: '%H:%M', day: '%e. %b', week: '%e. %b', month: '%b \'%y', year: '%Y' }, labels: { style: { color: '#666' } }, lineColor: '#e6e6e6', tickColor: '#e6e6e6' },
                     yAxis: defaultYAxisOptions,
                     tooltip: {
                         split: false, shared: true, crosshairs: true, valueDecimals: tooltipDecimals,
                         headerFormat: '<span style="font-size: 11px; color: #555;">{point.key:%A, %b %d, %Y %H:%M}</span><br/>',
-                        // pointFormat is now set within the series itself
+                        // Use HTML in point format for better styling control if needed
+                        // pointFormat: `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}${tooltipValueSuffix ? ' ' + tooltipValueSuffix.replace('°', '°') : ''}</b><br/>`
                     },
-                    legend: {
-                        enabled: true, layout: 'horizontal', align: 'center', verticalAlign: 'bottom',
-                        borderWidth: 0, itemStyle: { color: '#333', fontWeight: 'normal' }
-                    },
+                    legend: { enabled: true, layout: 'horizontal', align: 'center', verticalAlign: 'bottom', borderWidth: 0, itemStyle: { color: '#333', fontWeight: 'normal' } },
                     plotOptions: {
-                        series: {
-                            marker: { enabled: false, radius: 3, states: { hover: { enabled: true, radius: 4 } } },
-                            states: { hover: { lineWidthPlus: 0 } }
-                        },
+                        series: { marker: { enabled: false, radius: 3, states: { hover: { enabled: true, radius: 4 } } }, states: { hover: { lineWidthPlus: 0 } } },
                         line: { lineWidth: 1.5 },
                         column: { pointPadding: 0.1, borderWidth: 0, groupPadding: 0.1 }
                     },
@@ -251,240 +386,134 @@
                         data: seriesData,
                         type: chartType,
                         color: color,
+                         // Define tooltip content within the series for better context
                         tooltip: {
-                            // Define tooltip content here, including the suffix
-                            pointFormat: `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}${tooltipValueSuffix ? ' ' + tooltipValueSuffix.replace('°', '°') : ''}</b><br/>`
+                            pointFormat: `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}${tooltipValueSuffix ? ' ' + tooltipValueSuffix.replace('°', '°') : ''}</b><br/>`,
+                            valueDecimals: tooltipDecimals // Ensure decimals are set correctly here
                         }
                     }],
                     credits: { enabled: false }
                 });
-
-                 if (statusDiv.classList.contains('loading-message')) {
-                     statusDiv.style.display = 'none'; // Hide loading message only after first successful chart
-                 }
-
+                return true; // Indicate success
             } catch (error) {
                 console.error(`Error creating chart ${containerId}:`, error);
                 const chartDiv = document.getElementById(containerId);
                 if (chartDiv) chartDiv.innerHTML = `<p class="error-message">Could not load chart: ${error.message}</p>`;
-                 if (statusDiv.style.display !== 'none') {
-                     statusDiv.textContent = 'Error loading one or more charts. Check console for details.';
-                     statusDiv.className = 'error-message';
-                 }
+                return false; // Indicate failure
             }
-        }
+    }
 
-        // --- Fetch Data and Create All Charts ---
-        fetch(weatherDataUrl)
+    // --- Function to Fetch and Display Current Weather (from file) ---
+    function displayCurrentWeather() {
+        fetch(currentWeatherDataFileUrl)
             .then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    if (response.status === 404) throw new Error(`Current weather file not found (404). Has the hourly workflow run?`);
+                    throw new Error(`HTTP error fetching current weather file! status: ${response.status}`);
+                }
                 return response.json();
             })
             .then(data => {
-                console.log("Weather data fetched successfully:", data);
+                console.log("Current weather data loaded from file:", data);
+                if (!data || !data.current) throw new Error("Current weather data missing or invalid in the JSON file.");
 
-                if (!data || !data.hourly || !data.hourly.time) {
-                   throw new Error('Fetched data is missing essential hourly time information.');
-                }
+                const current = data.current;
+                const updateElement = (id, text) => {
+                    const el = document.getElementById(id);
+                    // Only update if element exists and value is not null/undefined
+                    if (el && text !== null && typeof text !== 'undefined') el.textContent = text;
+                    else if (el) el.textContent = '-'; // Default placeholder
+                    else console.warn(`Element with ID ${id} not found.`);
+                };
+
+                updateElement('current-temp', `${current.temperature_2m?.toFixed(1)}°C`);
+                updateElement('current-apparent-temp', current.apparent_temperature !== null ? `(Feels like ${current.apparent_temperature?.toFixed(1)}°C)` : '');
+                updateElement('current-description', getWeatherDescription(current.weather_code));
+                updateElement('current-humidity', `${current.relative_humidity_2m?.toFixed(0)}%`);
+                const windDir = getWindDirection(current.wind_direction_10m);
+                updateElement('current-wind', `${current.wind_speed_10m?.toFixed(1)} km/h ${windDir}`);
+                 updateElement('current-gusts', current.wind_gusts_10m !== null ? `(Gusts ${current.wind_gusts_10m?.toFixed(1)} km/h)` : '');
+                updateElement('current-pressure', `${current.pressure_msl?.toFixed(1)} hPa`);
+                updateElement('current-cloud-cover', `${current.cloud_cover?.toFixed(0)}%`);
+                updateElement('current-time', formatDateTime(current.time));
+
+                currentStatusDiv.style.display = 'block';
+                currentErrorDiv.style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error loading/displaying current weather from file:', error);
+                currentErrorDiv.textContent = `Could not load current weather: ${error.message}`;
+                currentErrorDiv.style.display = 'block';
+                currentStatusDiv.style.display = 'none';
+            });
+    }
+
+     // --- Function to Fetch and Display Forecast Charts ---
+    function displayForecastCharts() {
+         fetch(forecastDataUrl)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error fetching forecast file! status: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log("Forecast data fetched successfully:", data);
+
+                if (!data || !data.hourly || !data.hourly.time) throw new Error('Forecast data is missing essential hourly time information.');
+
                 const times = data.hourly.time;
+                let chartRendered = false;
+                const results = []; // To track success/failure of each chart
 
                 // --- Generate Charts Sequentially ---
+                if (data.hourly.temperature_2m) { results.push(createHighchartStock({ containerId: 'temperature_2m-chart', seriesData: transformData(times, data.hourly.temperature_2m), seriesName: 'Temperature (2m)', seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1 })); }
+                if (data.hourly.relative_humidity_2m) { results.push(createHighchartStock({ containerId: 'relative_humidity_2m-chart', seriesData: transformData(times, data.hourly.relative_humidity_2m), seriesName: 'Relative Humidity (2m)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.dew_point_2m) { results.push(createHighchartStock({ containerId: 'dew_point_2m-chart', seriesData: transformData(times, data.hourly.dew_point_2m), seriesName: 'Dew Point (2m)', seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1 })); }
+                if (data.hourly.apparent_temperature) { results.push(createHighchartStock({ containerId: 'apparent_temperature-chart', seriesData: transformData(times, data.hourly.apparent_temperature), seriesName: 'Apparent Temperature', seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1 })); }
+                if (data.hourly.pressure_msl) { results.push(createHighchartStock({ containerId: 'pressure_msl-chart', seriesData: transformData(times, data.hourly.pressure_msl), seriesName: 'Pressure (MSL)', seriesUnit: 'hPa', tooltipValueSuffix: 'hPa', tooltipDecimals: 1 })); }
+                if (data.hourly.surface_pressure) { results.push(createHighchartStock({ containerId: 'surface_pressure-chart', seriesData: transformData(times, data.hourly.surface_pressure), seriesName: 'Surface Pressure', seriesUnit: 'hPa', tooltipValueSuffix: 'hPa', tooltipDecimals: 1 })); }
+                if (data.hourly.cloud_cover) { results.push(createHighchartStock({ containerId: 'cloud_cover-chart', seriesData: transformData(times, data.hourly.cloud_cover), seriesName: 'Cloud Cover (Total)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.cloud_cover_low) { results.push(createHighchartStock({ containerId: 'cloud_cover_low-chart', seriesData: transformData(times, data.hourly.cloud_cover_low), seriesName: 'Cloud Cover (Low)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.cloud_cover_mid) { results.push(createHighchartStock({ containerId: 'cloud_cover_mid-chart', seriesData: transformData(times, data.hourly.cloud_cover_mid), seriesName: 'Cloud Cover (Mid)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.cloud_cover_high) { results.push(createHighchartStock({ containerId: 'cloud_cover_high-chart', seriesData: transformData(times, data.hourly.cloud_cover_high), seriesName: 'Cloud Cover (High)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.wind_speed_10m) { results.push(createHighchartStock({ containerId: 'wind_speed_10m-chart', seriesData: transformData(times, data.hourly.wind_speed_10m), seriesName: 'Wind Speed (10m)', seriesUnit: 'km/h', tooltipValueSuffix: 'km/h', tooltipDecimals: 1, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.wind_direction_10m) { results.push(createHighchartStock({ containerId: 'wind_direction_10m-chart', seriesData: transformData(times, data.hourly.wind_direction_10m), seriesName: 'Wind Direction (10m)', seriesUnit: '°', tooltipValueSuffix: '°', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 360, tickInterval: 45 } })); }
+                if (data.hourly.wind_gusts_10m) { results.push(createHighchartStock({ containerId: 'wind_gusts_10m-chart', seriesData: transformData(times, data.hourly.wind_gusts_10m), seriesName: 'Wind Gusts (10m)', seriesUnit: 'km/h', tooltipValueSuffix: 'km/h', tooltipDecimals: 1, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.shortwave_radiation) { results.push(createHighchartStock({ containerId: 'shortwave_radiation-chart', seriesData: transformData(times, data.hourly.shortwave_radiation), seriesName: 'Shortwave Radiation', seriesUnit: 'W/m²', tooltipValueSuffix: 'W/m²', tooltipDecimals: 0, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.direct_radiation) { results.push(createHighchartStock({ containerId: 'direct_radiation-chart', seriesData: transformData(times, data.hourly.direct_radiation), seriesName: 'Direct Radiation', seriesUnit: 'W/m²', tooltipValueSuffix: 'W/m²', tooltipDecimals: 0, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.precipitation) { results.push(createHighchartStock({ containerId: 'precipitation-chart', seriesData: transformData(times, data.hourly.precipitation), seriesName: 'Precipitation', seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1, chartType: 'column', yAxisOptions: { min: 0 } })); }
+                if (data.hourly.precipitation_probability) { results.push(createHighchartStock({ containerId: 'precipitation_probability-chart', seriesData: transformData(times, data.hourly.precipitation_probability), seriesName: 'Precipitation Probability', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.rain) { results.push(createHighchartStock({ containerId: 'rain-chart', seriesData: transformData(times, data.hourly.rain), seriesName: 'Rain', seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1, chartType: 'column', yAxisOptions: { min: 0 } })); }
+                if (data.hourly.showers) { results.push(createHighchartStock({ containerId: 'showers-chart', seriesData: transformData(times, data.hourly.showers), seriesName: 'Showers', seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1, chartType: 'column', yAxisOptions: { min: 0 } })); }
+                if (data.hourly.freezing_level_height) { results.push(createHighchartStock({ containerId: 'freezing_level_height-chart', seriesData: transformData(times, data.hourly.freezing_level_height), seriesName: 'Freezing Level Height', seriesUnit: 'm', tooltipValueSuffix: 'm', tooltipDecimals: 0, yAxisOptions: { min: 0 } })); }
 
-                if (data.hourly.temperature_2m) {
-                    createHighchartStock({
-                        containerId: 'temperature_2m-chart',
-                        seriesData: transformData(times, data.hourly.temperature_2m),
-                        seriesName: 'Temperature (2m)',
-                        seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1
-                    });
-                }
-                if (data.hourly.relative_humidity_2m) {
-                    createHighchartStock({
-                        containerId: 'relative_humidity_2m-chart',
-                        seriesData: transformData(times, data.hourly.relative_humidity_2m),
-                        seriesName: 'Relative Humidity (2m)',
-                        seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 100 }
-                    });
-                }
-                 if (data.hourly.dew_point_2m) {
-                    createHighchartStock({
-                        containerId: 'dew_point_2m-chart',
-                        seriesData: transformData(times, data.hourly.dew_point_2m),
-                        seriesName: 'Dew Point (2m)',
-                        seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1
-                    });
-                }
-                if (data.hourly.apparent_temperature) {
-                    createHighchartStock({
-                        containerId: 'apparent_temperature-chart',
-                        seriesData: transformData(times, data.hourly.apparent_temperature),
-                        seriesName: 'Apparent Temperature',
-                        seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1
-                    });
-                }
-                if (data.hourly.pressure_msl) {
-                    createHighchartStock({
-                        containerId: 'pressure_msl-chart',
-                        seriesData: transformData(times, data.hourly.pressure_msl),
-                        seriesName: 'Pressure (MSL)',
-                        seriesUnit: 'hPa', tooltipValueSuffix: 'hPa', tooltipDecimals: 1
-                    });
-                }
-                if (data.hourly.surface_pressure) {
-                    createHighchartStock({
-                        containerId: 'surface_pressure-chart',
-                        seriesData: transformData(times, data.hourly.surface_pressure),
-                        seriesName: 'Surface Pressure',
-                        seriesUnit: 'hPa', tooltipValueSuffix: 'hPa', tooltipDecimals: 1
-                    });
-                }
-                 if (data.hourly.cloud_cover) {
-                    createHighchartStock({
-                        containerId: 'cloud_cover-chart',
-                        seriesData: transformData(times, data.hourly.cloud_cover),
-                        seriesName: 'Cloud Cover (Total)',
-                        seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 100 }
-                    });
-                }
-                 if (data.hourly.cloud_cover_low) {
-                    createHighchartStock({
-                        containerId: 'cloud_cover_low-chart',
-                        seriesData: transformData(times, data.hourly.cloud_cover_low),
-                        seriesName: 'Cloud Cover (Low)',
-                        seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 100 }
-                    });
-                }
-                 if (data.hourly.cloud_cover_mid) {
-                    createHighchartStock({
-                        containerId: 'cloud_cover_mid-chart',
-                        seriesData: transformData(times, data.hourly.cloud_cover_mid),
-                        seriesName: 'Cloud Cover (Mid)',
-                        seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 100 }
-                    });
-                }
-                if (data.hourly.cloud_cover_high) {
-                    createHighchartStock({
-                        containerId: 'cloud_cover_high-chart',
-                        seriesData: transformData(times, data.hourly.cloud_cover_high),
-                        seriesName: 'Cloud Cover (High)',
-                        seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 100 }
-                    });
-                }
-                 if (data.hourly.wind_speed_10m) {
-                    createHighchartStock({
-                        containerId: 'wind_speed_10m-chart',
-                        seriesData: transformData(times, data.hourly.wind_speed_10m),
-                        seriesName: 'Wind Speed (10m)',
-                        seriesUnit: 'km/h', tooltipValueSuffix: 'km/h', tooltipDecimals: 1,
-                        yAxisOptions: { min: 0 }
-                    });
-                }
-                if (data.hourly.wind_direction_10m) {
-                    createHighchartStock({
-                        containerId: 'wind_direction_10m-chart',
-                        seriesData: transformData(times, data.hourly.wind_direction_10m),
-                        seriesName: 'Wind Direction (10m)',
-                        seriesUnit: '°', tooltipValueSuffix: '°', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 360, tickInterval: 45 } // Range 0-360, ticks every 45deg
-                    });
-                }
-                 if (data.hourly.wind_gusts_10m) {
-                    createHighchartStock({
-                        containerId: 'wind_gusts_10m-chart',
-                        seriesData: transformData(times, data.hourly.wind_gusts_10m),
-                        seriesName: 'Wind Gusts (10m)',
-                        seriesUnit: 'km/h', tooltipValueSuffix: 'km/h', tooltipDecimals: 1,
-                        yAxisOptions: { min: 0 }
-                    });
-                }
-                if (data.hourly.shortwave_radiation) {
-                     createHighchartStock({
-                         containerId: 'shortwave_radiation-chart',
-                         seriesData: transformData(times, data.hourly.shortwave_radiation),
-                         seriesName: 'Shortwave Radiation',
-                         seriesUnit: 'W/m²', tooltipValueSuffix: 'W/m²', tooltipDecimals: 0,
-                         yAxisOptions: { min: 0 }
-                     });
-                 }
-                 if (data.hourly.direct_radiation) {
-                     createHighchartStock({
-                         containerId: 'direct_radiation-chart',
-                         seriesData: transformData(times, data.hourly.direct_radiation),
-                         seriesName: 'Direct Radiation',
-                         seriesUnit: 'W/m²', tooltipValueSuffix: 'W/m²', tooltipDecimals: 0,
-                         yAxisOptions: { min: 0 }
-                     });
-                 }
-                 if (data.hourly.precipitation) {
-                    createHighchartStock({
-                        containerId: 'precipitation-chart',
-                        seriesData: transformData(times, data.hourly.precipitation),
-                        seriesName: 'Precipitation',
-                        seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1,
-                        chartType: 'column', // Use column chart
-                        yAxisOptions: { min: 0 }
-                    });
-                }
-                 if (data.hourly.precipitation_probability) {
-                    createHighchartStock({
-                        containerId: 'precipitation_probability-chart',
-                        seriesData: transformData(times, data.hourly.precipitation_probability),
-                        seriesName: 'Precipitation Probability',
-                        seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0,
-                        yAxisOptions: { min: 0, max: 100 }
-                    });
-                }
-                if (data.hourly.rain) {
-                    createHighchartStock({
-                        containerId: 'rain-chart',
-                        seriesData: transformData(times, data.hourly.rain),
-                        seriesName: 'Rain',
-                        seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1,
-                        chartType: 'column',
-                        yAxisOptions: { min: 0 }
-                    });
-                }
-                if (data.hourly.showers) {
-                    createHighchartStock({
-                        containerId: 'showers-chart',
-                        seriesData: transformData(times, data.hourly.showers),
-                        seriesName: 'Showers',
-                        seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1,
-                        chartType: 'column',
-                        yAxisOptions: { min: 0 }
-                    });
-                }
-                 if (data.hourly.freezing_level_height) {
-                     createHighchartStock({
-                         containerId: 'freezing_level_height-chart',
-                         seriesData: transformData(times, data.hourly.freezing_level_height),
-                         seriesName: 'Freezing Level Height',
-                         seriesUnit: 'm', tooltipValueSuffix: 'm', tooltipDecimals: 0,
-                         yAxisOptions: { min: 0 } // Assuming height > 0
-                     });
-                 }
+                // Check if at least one chart was successfully rendered
+                chartRendered = results.some(result => result === true);
 
-                 // Check if *any* charts were attempted and hide loading if so
-                 // (The check inside createHighchartStock hides it on first success)
-                 if (statusDiv.classList.contains('loading-message')) {
-                    // If we get here and it's still loading, means no variables were found
-                     statusDiv.textContent = 'No weather data found for the requested variables.';
-                     statusDiv.className = 'error-message';
-                 }
+                if (chartRendered) {
+                     chartStatusDiv.style.display = 'none';
+                } else {
+                    // This means data existed but Highcharts failed OR no variables were found
+                    chartStatusDiv.textContent = 'No forecast data available or charts failed to render.';
+                    chartStatusDiv.className = 'error-message';
+                    chartStatusDiv.style.display = 'block';
+                }
 
             })
             .catch(error => {
-                console.error('Error fetching or processing weather data:', error);
-                statusDiv.textContent = `Failed to load weather data: ${error.message}. Please try again later.`;
-                statusDiv.className = 'error-message';
-                statusDiv.style.display = 'block';
+                console.error('Error fetching or processing forecast data:', error);
+                chartStatusDiv.textContent = `Failed to load forecast charts: ${error.message}. Please try again later.`;
+                chartStatusDiv.className = 'error-message';
+                chartStatusDiv.style.display = 'block';
             });
-    </script>
+    }
+
+    // --- Run on Page Load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        displayCurrentWeather(); // Fetches current_weather.json
+        displayForecastCharts(); // Fetches weather_data.json
+    });
+
+</script>
 
 </body>
 </html>
