@@ -3,25 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shanghai Daily Weather Charts</title>
+    <title>Shanghai Daily Weather Charts (Interactive)</title>
+    <!-- Include Plotly.js via CDN -->
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
     <style>
-        /* Basic styling for the images */
+        /* Basic styling */
         body {
             font-family: sans-serif;
             line-height: 1.6;
             margin: 20px;
         }
         .chart-container {
-            margin-bottom: 30px; /* Add space between charts */
-            text-align: center; /* Center chart headings if needed */
+            margin-bottom: 30px; /* Space between charts */
+            border: 1px solid #eee; /* Optional border */
+            padding: 10px;
         }
-        .chart-container img {
-            max-width: 100%; /* Make images responsive */
-            height: auto;   /* Maintain aspect ratio */
-            border: 1px solid #ccc; /* Optional border */
-            display: block; /* Helps with centering if container is centered */
-            margin-left: auto;
-            margin-right: auto;
+        .loading-message, .error-message {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            padding: 20px;
         }
         h1, h2 {
             text-align: center;
@@ -30,79 +31,231 @@
 </head>
 <body>
 
-    <h1>Shanghai Daily Weather Forecast Charts</h1>
-    <p style="text-align: center;">Charts are updated daily. Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>.</p>
+    <h1>Shanghai Daily Weather Forecast Charts (Interactive)</h1>
+    <p style="text-align: center;">
+        Charts are updated daily. Hover over points for details, click and drag to zoom.
+        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>.
+    </p>
 
-    <!-- Add containers for each chart you want to display -->
+    <!-- Div to show loading/error messages -->
+    <div id="status-message" class="loading-message">Loading chart data...</div>
 
-    <div class="chart-container">
-        <h2>Temperature Forecast</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/temperature_chart.png"
-             alt="Hourly Temperature Forecast Chart">
+    <!-- Chart Containers - Add one div for each chart you want -->
+    <div id="temperature-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-    <div class="chart-container">
-        <h2>Apparent Temperature Forecast</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/apparent_temperature_chart.png"
-             alt="Hourly Apparent Temperature Forecast Chart">
+    <div id="apparent-temp-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-    <div class="chart-container">
-        <h2>Precipitation Probability</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/precipitation_probability_chart.png"
-             alt="Hourly Precipitation Probability Chart">
+    <div id="precip-prob-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-    <div class="chart-container">
-        <h2>Total Precipitation</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/precipitation_chart.png"
-             alt="Hourly Total Precipitation Forecast Chart">
+     <div id="precip-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-     <div class="chart-container">
-        <h2>Rain Forecast</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/rain_chart.png"
-             alt="Hourly Rain Forecast Chart">
+    <div id="wind-speed-10m-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-    <div class="chart-container">
-        <h2>Showers Forecast</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/showers_chart.png"
-             alt="Hourly Showers Forecast Chart">
+    <div id="wind-gusts-10m-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-    <div class="chart-container">
-        <h2>Total Cloud Cover</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/cloud_cover_total_chart.png"
-             alt="Hourly Total Cloud Cover Chart">
+    <div id="cloud-cover-chart" class="chart-container">
+        <!-- Plotly will render the chart here -->
     </div>
 
-    <!-- Add more chart containers as needed -->
-    <!-- Example for Wind Speed -->
-    <div class="chart-container">
-        <h2>Wind Speed (10m)</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/wind_speed_10m_chart.png"
-             alt="Hourly Wind Speed 10m Chart">
-    </div>
+    <!-- Add more divs with unique IDs for other charts as needed -->
+    <!-- e.g., <div id="wind-direction-chart" class="chart-container"></div> -->
 
-     <div class="chart-container">
-        <h2>Wind Gusts (10m)</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/wind_gusts_10m_chart.png"
-             alt="Hourly Wind Gusts 10m Chart">
-    </div>
 
-    <!-- Add other wind speeds, directions, cloud levels etc. following the same pattern -->
-    <!-- Make sure the filename in the src URL exactly matches the file in the weatherdaily repo -->
+    <script>
+        // URL to the raw weather_data.json file in your other repository
+        const weatherDataUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/weather_data.json';
+        const statusDiv = document.getElementById('status-message');
 
-    <!-- Example: Wind Direction (Remember line plots for direction can be tricky to interpret crossing 0/360) -->
-    <!--
-    <div class="chart-container">
-        <h2>Wind Direction (10m)</h2>
-        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/wind_direction_10m_chart.png"
-             alt="Hourly Wind Direction 10m Chart">
-    </div>
-    -->
+        // Function to create a Plotly chart
+        function createPlotlyChart(divId, data, layout) {
+            try {
+                Plotly.newPlot(divId, data, layout, {responsive: true});
+                 // Hide loading message if it's the first chart successfully created
+                if (statusDiv.classList.contains('loading-message')) {
+                     statusDiv.style.display = 'none';
+                }
+            } catch (error) {
+                console.error(`Error creating chart ${divId}:`, error);
+                 // Optionally display error in the specific chart div
+                 const chartDiv = document.getElementById(divId);
+                 if(chartDiv) chartDiv.innerHTML = `<p class="error-message">Could not load chart: ${error.message}</p>`;
+                  // Show general error if loading message still visible
+                  if (statusDiv.style.display !== 'none') {
+                     statusDiv.textContent = 'Error loading one or more charts. Check console for details.';
+                     statusDiv.className = 'error-message'; // Change style
+                 }
+            }
+        }
 
+        // Fetch the weather data when the page loads
+        fetch(weatherDataUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json(); // Parse the JSON from the response
+            })
+            .then(data => {
+                console.log("Weather data fetched successfully:", data); // For debugging
+
+                // --- Check if data structure is valid ---
+                if (!data || !data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
+                   throw new Error('Fetched data is missing essential hourly time information.');
+                }
+                const times = data.hourly.time; // Common X-axis data
+
+                // --- Create Temperature Chart ---
+                if (data.hourly.temperature_2m) {
+                    const tempData = [{
+                        x: times,
+                        y: data.hourly.temperature_2m,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Temperature',
+                        hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Temp: %{y}°C<extra></extra>' // Custom hover text
+                    }];
+                    const tempLayout = {
+                        title: 'Hourly Temperature Forecast (°C)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Temperature (°C)', rangemode: 'tozero' } // Ensure y-axis starts at 0 if appropriate or adjust
+                    };
+                    createPlotlyChart('temperature-chart', tempData, tempLayout);
+                }
+
+                // --- Create Apparent Temperature Chart ---
+                 if (data.hourly.apparent_temperature) {
+                    const appTempData = [{
+                        x: times,
+                        y: data.hourly.apparent_temperature,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Apparent Temp',
+                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Apparent Temp: %{y}°C<extra></extra>'
+                    }];
+                    const appTempLayout = {
+                        title: 'Hourly Apparent Temperature Forecast (°C)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Temperature (°C)' }
+                    };
+                    createPlotlyChart('apparent-temp-chart', appTempData, appTempLayout);
+                }
+
+                // --- Create Precipitation Probability Chart ---
+                if (data.hourly.precipitation_probability) {
+                    const precipProbData = [{
+                        x: times,
+                        y: data.hourly.precipitation_probability,
+                        mode: 'lines+markers', // Or type: 'bar' might be suitable too
+                        type: 'scatter',
+                        name: 'Probability',
+                        hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Precip. Prob: %{y}%<extra></extra>'
+                    }];
+                    const precipProbLayout = {
+                        title: 'Hourly Precipitation Probability (%)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Probability (%)', range: [0, 100] } // Set Y-axis range 0-100
+                    };
+                    createPlotlyChart('precip-prob-chart', precipProbData, precipProbLayout);
+                }
+
+                 // --- Create Precipitation Chart ---
+                if (data.hourly.precipitation) {
+                    const precipData = [{
+                        x: times,
+                        y: data.hourly.precipitation,
+                        type: 'bar', // Bar chart often better for precipitation amounts
+                        name: 'Precipitation',
+                         marker: { color: 'rgb(31, 119, 180)'}, // Bar color
+                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Precip: %{y} mm<extra></extra>'
+                    }];
+                    const precipLayout = {
+                        title: 'Hourly Precipitation Forecast (mm)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Precipitation (mm)', rangemode: 'tozero' }, // Ensure y-axis starts at 0
+                        bargap: 0.1 // Adjust gap between bars
+                    };
+                    createPlotlyChart('precip-chart', precipData, precipLayout);
+                }
+
+                 // --- Create Wind Speed (10m) Chart ---
+                 if (data.hourly.wind_speed_10m) {
+                    const windSpeedData = [{
+                        x: times,
+                        y: data.hourly.wind_speed_10m,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Wind Speed',
+                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Wind Speed (10m): %{y} km/h<extra></extra>'
+                    }];
+                    const windSpeedLayout = {
+                        title: 'Hourly Wind Speed Forecast (10m, km/h)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Speed (km/h)', rangemode: 'tozero' }
+                    };
+                    createPlotlyChart('wind-speed-10m-chart', windSpeedData, windSpeedLayout);
+                }
+
+                // --- Create Wind Gusts (10m) Chart ---
+                 if (data.hourly.wind_gusts_10m) {
+                    const windGustsData = [{
+                        x: times,
+                        y: data.hourly.wind_gusts_10m,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Wind Gusts',
+                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Wind Gusts (10m): %{y} km/h<extra></extra>'
+                    }];
+                    const windGustsLayout = {
+                        title: 'Hourly Wind Gusts Forecast (10m, km/h)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Speed (km/h)', rangemode: 'tozero' }
+                    };
+                    createPlotlyChart('wind-gusts-10m-chart', windGustsData, windGustsLayout);
+                }
+
+                // --- Create Cloud Cover Chart (Total) ---
+                 if (data.hourly.cloud_cover) {
+                    const cloudData = [{
+                        x: times,
+                        y: data.hourly.cloud_cover,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Total Cloud Cover',
+                         hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Cloud Cover: %{y}%<extra></extra>'
+                    }];
+                    const cloudLayout = {
+                        title: 'Hourly Total Cloud Cover Forecast (%)',
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: 'Cloud Cover (%)', range: [0, 100] }
+                    };
+                    createPlotlyChart('cloud-cover-chart', cloudData, cloudLayout);
+                }
+
+                // --- Add more charts here ---
+                // Example: Rain Chart (similar to precipitation, maybe redundant unless specifically needed)
+                // if (data.hourly.rain) { ... createPlotlyChart(...) ... }
+
+
+            })
+            .catch(error => {
+                console.error('Error fetching or processing weather data:', error);
+                // Display error message on the page
+                statusDiv.textContent = `Failed to load weather data: ${error.message}. Please try again later.`;
+                statusDiv.className = 'error-message'; // Change style
+            });
+    </script>
 
 </body>
 </html>
