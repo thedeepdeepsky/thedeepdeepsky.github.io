@@ -1,128 +1,108 @@
 <!DOCTYPE html>
-<html>
-<head lang="en">
+<html lang="en">
+<head>
     <meta charset="UTF-8">
-    <title></title>
-    <style type="text/css">
-        div{
-            border: 2px black solid;
-            width: 600px;
-            height: 600px;
-            margin: 50px auto;
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shanghai Daily Weather Charts</title>
+    <style>
+        /* Basic styling for the images */
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+        }
+        .chart-container {
+            margin-bottom: 30px; /* Add space between charts */
+            text-align: center; /* Center chart headings if needed */
+        }
+        .chart-container img {
+            max-width: 100%; /* Make images responsive */
+            height: auto;   /* Maintain aspect ratio */
+            border: 1px solid #ccc; /* Optional border */
+            display: block; /* Helps with centering if container is centered */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        h1, h2 {
+            text-align: center;
         }
     </style>
 </head>
 <body>
-<b>Weather data (https://content.meteoblue.com/en/business-solutions/weather-apis) provided by meteoblue (https://www.meteoblue.com)</b>
-<div class="container">
-    <canvas width="600" height="600" id="canvasOne"></canvas>
-</div>
-<script type="text/javascript">
-    //获得画布
-    var myCanvas = document.getElementById("canvasOne");
-    var cxt = myCanvas.getContext("2d");
 
-    function clock(){
-        //1.创建日期对象
-        var date = new Date();
-        var hours = date.getHours(); //小时
-        var min = date.getMinutes(); //分
-        var seconds = date.getSeconds(); //秒
-        //三元运算符
-        //true:false ? true false
-        hours = hours>12 ? hours-12:hours;
-        //hours+=(min/60); //算出当前小时
-        /*alert(hours);
-         alert(myCanvas.height);
-         alert(myCanvas.width);*/
-        //更新画面
-        cxt.clearRect(0,0,myCanvas.height,myCanvas.width);
+    <h1>Shanghai Daily Weather Forecast Charts</h1>
+    <p style="text-align: center;">Charts are updated daily. Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>.</p>
 
-        cxt.beginPath();
-        cxt.lineWidth = "7";
-        cxt.arc(300,300,200,0,Math.PI*2,true);
-        cxt.strokeStyle = "blue";
-        cxt.stroke();
-        cxt.closePath();
+    <!-- Add containers for each chart you want to display -->
 
-        for(var i = 0; i < 12; i++){
-            for(var j = 0; j < 60; j++){
-                cxt.save();
-                cxt.translate(300,300); //设置圆的中心
-                cxt.rotate(6*j*Math.PI/180); //圆的弧度
-                cxt.beginPath();
-                cxt.moveTo(0,-180);
-                cxt.lineTo(0,-190);
-                cxt.lineWidth = "6";
-                cxt.strokeStyle = "coral";
-                cxt.stroke();
-                cxt.closePath();
-                cxt.restore();
-            }
-            cxt.save();
-            cxt.translate(300,300); //设置圆的中心
-            cxt.rotate(30*i*Math.PI/180); //圆的弧度
-            cxt.beginPath();
-            cxt.moveTo(0,-170);
-            cxt.lineTo(0,-195);
-            cxt.lineWidth = "7";
-            cxt.strokeStyle = "coral";
-            cxt.stroke();
-            cxt.closePath();
-            cxt.restore();
-        }
-        //圆点
-        cxt.save();
-        cxt.translate(300,300);
-        cxt.beginPath();
-        cxt.arc(0,0,6,0,Math.PI*2,true);
-        cxt.fillStyle = "black";
-        cxt.fill();
-        cxt.closePath();
-        cxt.restore();
+    <div class="chart-container">
+        <h2>Temperature Forecast</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/temperature_chart.png"
+             alt="Hourly Temperature Forecast Chart">
+    </div>
 
-        //时针
-        cxt.save();
-        cxt.translate(300,300);
-        cxt.beginPath();
+    <div class="chart-container">
+        <h2>Apparent Temperature Forecast</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/apparent_temperature_chart.png"
+             alt="Hourly Apparent Temperature Forecast Chart">
+    </div>
 
-        cxt.rotate(hours*30*Math.PI/180); //弧形
-        cxt.lineWidth = "5";
-        cxt.strokeStyle = "red";
-        cxt.moveTo(0,0);
-        cxt.lineTo(0,-100);
+    <div class="chart-container">
+        <h2>Precipitation Probability</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/precipitation_probability_chart.png"
+             alt="Hourly Precipitation Probability Chart">
+    </div>
 
-        cxt.stroke();
-        cxt.closePath();
-        cxt.restore();
-        //分针
-        cxt.save();
-        cxt.translate(300,300);
-        cxt.beginPath();
-        cxt.moveTo(0,0);
-        cxt.rotate(min*6*Math.PI/180); //弧形
-        cxt.lineTo(0,-140);
-        cxt.lineWidth = "4";
-        cxt.strokeStyle = "green";
-        cxt.stroke();
-        cxt.closePath();
-        cxt.restore();
-        //秒针
-        cxt.save();
-        cxt.translate(300,300);
-        cxt.beginPath();
-        cxt.rotate(seconds*6*Math.PI/180);
-        cxt.moveTo(0,0);
-        cxt.lineTo(0,-160);
-        cxt.lineWidth = "3";
-        cxt.strokeStyle = "blue";
-        cxt.stroke();
-        cxt.closePath();
-        cxt.restore();
-    }
-    window.setInterval(clock,1000);
+    <div class="chart-container">
+        <h2>Total Precipitation</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/precipitation_chart.png"
+             alt="Hourly Total Precipitation Forecast Chart">
+    </div>
+
+     <div class="chart-container">
+        <h2>Rain Forecast</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/rain_chart.png"
+             alt="Hourly Rain Forecast Chart">
+    </div>
+
+    <div class="chart-container">
+        <h2>Showers Forecast</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/showers_chart.png"
+             alt="Hourly Showers Forecast Chart">
+    </div>
+
+    <div class="chart-container">
+        <h2>Total Cloud Cover</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/cloud_cover_total_chart.png"
+             alt="Hourly Total Cloud Cover Chart">
+    </div>
+
+    <!-- Add more chart containers as needed -->
+    <!-- Example for Wind Speed -->
+    <div class="chart-container">
+        <h2>Wind Speed (10m)</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/wind_speed_10m_chart.png"
+             alt="Hourly Wind Speed 10m Chart">
+    </div>
+
+     <div class="chart-container">
+        <h2>Wind Gusts (10m)</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/wind_gusts_10m_chart.png"
+             alt="Hourly Wind Gusts 10m Chart">
+    </div>
+
+    <!-- Add other wind speeds, directions, cloud levels etc. following the same pattern -->
+    <!-- Make sure the filename in the src URL exactly matches the file in the weatherdaily repo -->
+
+    <!-- Example: Wind Direction (Remember line plots for direction can be tricky to interpret crossing 0/360) -->
+    <!--
+    <div class="chart-container">
+        <h2>Wind Direction (10m)</h2>
+        <img src="https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/wind_direction_10m_chart.png"
+             alt="Hourly Wind Direction 10m Chart">
+    </div>
+    -->
 
 
-</script>
 </body>
 </html>
