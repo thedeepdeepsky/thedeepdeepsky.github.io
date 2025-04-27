@@ -26,6 +26,27 @@
             margin: 0 auto; /* Center content */
             padding: 20px;
         }
+        /* Current Weather Display Styling */
+        #current-weather-display {
+            background-color: #e9f5ff; /* Light blue background */
+            border: 1px solid #b3d7ff;
+            padding: 12px 15px;
+            margin-bottom: 20px; /* Space below */
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.95em;
+            color: #334; /* Darker blue text */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        #current-weather-display strong {
+            color: #0056b3; /* Even darker blue for the title */
+            margin-right: 8px;
+        }
+        #current-weather-display .error {
+            color: #d9534f; /* Red for errors */
+            font-weight: bold;
+        }
+
         #main-chart-container { /* Container for the single chart */
             margin-bottom: 20px;
             min-height: 500px; /* Height for chart + navigator */
@@ -96,12 +117,17 @@
 <body>
 <div class="page-container">
 
+    <!-- Current Weather Display Area -->
+    <div id="current-weather-display">
+        Loading current weather...
+    </div>
+
     <h1>Shanghai Interactive Weather Chart</h1>
      <p style="text-align: center; color: #666; margin-top: 0; margin-bottom: 20px;">
-        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Charts updated daily. Select variables below.
+        Forecast data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Charts updated daily. Select variables below.
     </p>
 
-    <!-- Status Message -->
+    <!-- Status Message for Forecast -->
     <div id="status-message" class="loading-message">Loading forecast data...</div>
     <div id="chart-error" class="error-message" style="display: none;"></div>
 
@@ -149,22 +175,23 @@
 </div> <!-- End page-container -->
 
 <script>
-    // URL for forecast data file
+    // URLs for data files
     const forecastDataUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/weather_data.json';
+    const currentWeatherUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/current_weather.json'; // Correct URL for raw file
 
     // DOM Elements
+    const currentWeatherDiv = document.getElementById('current-weather-display');
     const chartStatusDiv = document.getElementById('status-message');
     const chartErrorDiv = document.getElementById('chart-error');
     const mainChartContainer = document.getElementById('main-chart-container');
     const selectorsDiv = document.getElementById('chart-selectors');
 
-    // Global variables
+    // Global variables for chart
     let mainChart = null; // Holds the Highcharts instance
-    let forecastData = null; // Holds the fetched hourly data object
+    let forecastData = null; // Holds the fetched hourly forecast data object
     const defaultSeriesColor = '#f5a623'; // Default orange
 
     // Define Y-Axes configuration based on units
-    // Assign unique IDs and potential sides (opposite: true for right side)
     const yAxesConfig = [
         { id: 'yaxis-temp', unit: '°C', title: { text: null }, labels: { format: '{value}°C' }, opposite: false },
         { id: 'yaxis-percent', unit: '%', title: { text: null }, labels: { format: '{value}%' }, opposite: true, min: 0, max: 100 }, // Percent on right
@@ -181,6 +208,83 @@
         map[axis.unit] = axis.id;
         return map;
     }, {});
+
+    // --- Function to fetch and display current weather ---
+    function displayCurrentWeather() {
+        fetch(currentWeatherUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error fetching current weather! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                 console.log("Current weather data fetched:", data);
+                if (data && data.current) {
+                    const current = data.current;
+                    // Use nullish coalescing (??) to provide default 'N/A' if data is missing
+                    const temp = current.temperature ?? 'N/A';
+                    const windSpeed = current.windspeed ?? 'N/A';
+                    const windDir = current.winddirection ?? 'N/A';
+                    const weatherCode = current.weathercode ?? 'N/A'; // You might want to map this code to text later
+                    const timeStr = current.time ? new Date(current.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+                    // Basic weather code mapping (example)
+                    const weatherDesc = getWeatherDescription(weatherCode);
+
+                    // Construct HTML (using units common for Open-Meteo)
+                    let weatherHtml = `
+                        <strong>Current Weather (${timeStr}):</strong>
+                        Temp: ${temp}°C |
+                        ${weatherDesc ? `${weatherDesc} | ` : ''}
+                        Wind: ${windSpeed} km/h (${windDir}°)
+                    `;
+                    currentWeatherDiv.innerHTML = weatherHtml;
+                } else {
+                    throw new Error('Current weather data format is invalid or missing "current" key.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching or displaying current weather:', error);
+                currentWeatherDiv.innerHTML = `<span class="error">Could not load current weather: ${error.message}</span>`;
+            });
+    }
+
+    // --- Simple Weather Code to Description Mapping (Extend as needed) ---
+    // See: https://open-meteo.com/en/docs#weathervariables
+    function getWeatherDescription(code) {
+        const descriptions = {
+            0: 'Clear sky',
+            1: 'Mainly clear',
+            2: 'Partly cloudy',
+            3: 'Overcast',
+            45: 'Fog',
+            48: 'Depositing rime fog',
+            51: 'Light drizzle',
+            53: 'Moderate drizzle',
+            55: 'Dense drizzle',
+            56: 'Light freezing drizzle',
+            57: 'Dense freezing drizzle',
+            61: 'Slight rain',
+            63: 'Moderate rain',
+            65: 'Heavy rain',
+            66: 'Light freezing rain',
+            67: 'Heavy freezing rain',
+            71: 'Slight snow fall',
+            73: 'Moderate snow fall',
+            75: 'Heavy snow fall',
+            77: 'Snow grains',
+            80: 'Slight rain showers',
+            81: 'Moderate rain showers',
+            82: 'Violent rain showers',
+            85: 'Slight snow showers',
+            86: 'Heavy snow showers',
+            95: 'Thunderstorm', // Slight or moderate
+            96: 'Thunderstorm, slight hail',
+            99: 'Thunderstorm, heavy hail'
+        };
+        return descriptions[code] || (code !== 'N/A' ? `Code ${code}` : ''); // Return description or code itself if unknown
+    }
 
     // --- Function to transform forecast data to Highcharts format ---
     function transformData(times, values) {
@@ -228,7 +332,6 @@
                              pointFormat: `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}${seriesUnit ? ' ' + seriesUnit.replace('°', '°') : ''}</b><br/>`,
                             valueDecimals: (seriesUnit === '%' || seriesUnit === '°') ? 0 : 1 // Fewer decimals for % and degrees
                         },
-                        // Disable markers by default, enable on hover (inherited from plotOptions)
                         marker: { enabled: false }
                     });
                 } else {
@@ -249,6 +352,10 @@
 
     // --- Initialize the Chart and Fetch Data ---
     document.addEventListener('DOMContentLoaded', () => {
+        // Fetch and display current weather FIRST (or concurrently)
+        displayCurrentWeather();
+
+        // Fetch forecast data and initialize the chart
         fetch(forecastDataUrl)
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP error fetching forecast file! status: ${response.status}`);
@@ -267,7 +374,6 @@
                         navigator: {
                              enabled: true, adaptToUpdatedData: false, // Don't adapt navigator height to new series
                              height: 50,
-                             // Base navigator series on the default (temperature) data if available
                              series: {
                                 type: 'line',
                                 data: forecastData.temperature_2m ? transformData(forecastData.time, forecastData.temperature_2m) : [],
@@ -282,26 +388,22 @@
                         rangeSelector: { enabled: false },
                         title: { text: null }, subtitle: { text: null },
                         xAxis: { type: 'datetime', ordinal: false, dateTimeLabelFormats: { hour: '%H:%M', day: '%e. %b', week: '%e. %b', month: '%b \'%y', year: '%Y' }, labels: { style: { color: '#666' } }, lineColor: '#e6e6e6', tickColor: '#e6e6e6' },
-                        // Define ALL potential Y-Axes upfront
                         yAxis: yAxesConfig.map(axis => ({
-                            id: axis.id, // Assign the ID
+                            id: axis.id,
                             title: axis.title,
                             labels: axis.labels,
                             opposite: axis.opposite,
                             gridLineColor: '#f0f0f0',
                             lineColor: '#e6e6e6',
                             tickColor: '#e6e6e6',
-                            min: axis.min, // Apply min/max/tickInterval if defined
+                            min: axis.min,
                             max: axis.max,
                             tickInterval: axis.tickInterval,
-                            // Don't show axis if no series are linked to it initially? Highcharts might do this.
-                            // showEmpty: false // Might hide axis if no series is attached
                         })),
                         tooltip: {
                             split: false, shared: true, crosshairs: true,
                             headerFormat: '<span style="font-size: 11px; color: #555;">{point.key:%A, %b %d, %Y %H:%M}</span><br/>',
-                            // pointFormat is set per series when added
-                            backgroundColor: 'rgba(255, 255, 255, 0.95)', // Style tooltip directly
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
                             borderColor: '#f5a623',
                             borderWidth: 1,
                             shadow: true,
@@ -322,20 +424,25 @@
                     // Add default series (Temperature) if data exists
                     const defaultCheckbox = document.querySelector('input[type="checkbox"][value="temperature_2m"]');
                     if (defaultCheckbox && forecastData.temperature_2m) {
+                         defaultCheckbox.checked = true; // Ensure it's checked before triggering
                          handleCheckboxChange({ target: defaultCheckbox }); // Simulate checking it
+                    } else if (defaultCheckbox) {
+                         defaultCheckbox.checked = false; // Uncheck if data is missing
+                         defaultCheckbox.disabled = true; // Optionally disable it
+                         defaultCheckbox.parentElement.style.textDecoration = 'line-through'; // Visual cue
                     }
 
 
                     // Attach event listener to the container for checkboxes
                     selectorsDiv.addEventListener('change', handleCheckboxChange);
 
-                    // Show selectors and hide loading message
+                    // Show selectors and hide loading message for forecast
                     chartStatusDiv.style.display = 'none';
                     selectorsDiv.style.display = 'block'; // Show the checkboxes
 
                 } catch (error) {
                      console.error("Error creating initial Highcharts chart:", error);
-                     chartErrorDiv.textContent = `Failed to initialize chart: ${error.message}`;
+                     chartErrorDiv.textContent = `Failed to initialize forecast chart: ${error.message}`;
                      chartErrorDiv.style.display = 'block';
                      chartStatusDiv.style.display = 'none';
                 }
