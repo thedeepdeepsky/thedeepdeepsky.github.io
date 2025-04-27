@@ -223,10 +223,13 @@
                 if (data && data.current) {
                     const current = data.current;
                     // Use nullish coalescing (??) to provide default 'N/A' if data is missing
-                    const temp = current.temperature ?? 'N/A';
-                    const windSpeed = current.windspeed ?? 'N/A';
-                    const windDir = current.winddirection ?? 'N/A';
-                    const weatherCode = current.weathercode ?? 'N/A'; // You might want to map this code to text later
+                    const temp = current.temperature_2m ?? 'N/A';
+                    const windSpeed = current.wind_speed_10m ?? 'N/A';
+                    const windDir = current.wind_direction_10m ?? 'N/A';
+                    const weatherCode = current.weather_code ?? 'N/A'; // You might want to map this code to text later
+                    const app_temp = current.apparent_temperature ?? 'N/A';
+                    const cld = current.cloud_cover ?? 'N/A';
+                    const pressure = current.surface_pressure ?? 'N/A';
                     const timeStr = current.time ? new Date(current.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
                     // Basic weather code mapping (example)
@@ -237,7 +240,7 @@
                         <strong>Current Weather (${timeStr}):</strong>
                         Temp: ${temp}°C |
                         ${weatherDesc ? `${weatherDesc} | ` : ''}
-                        Wind: ${windSpeed} km/h (${windDir}°)
+                        Wind: ${windSpeed} km/h (${windDir}°) | apparent-temp: ${app_temp}°C | cloud_cover:${cld}% | surface_pressure:${pressure} hpa
                     `;
                     currentWeatherDiv.innerHTML = weatherHtml;
                 } else {
