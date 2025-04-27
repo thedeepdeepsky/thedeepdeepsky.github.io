@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shanghai Interactive Weather Chart</title>
+    <title>Shanghai Weather: Current & Forecast Charts</title>
 
     <!-- Highcharts Stock Library -->
     <script src="https://code.highcharts.com/stock/highstock.js"></script>
@@ -26,12 +26,23 @@
             margin: 0 auto; /* Center content */
             padding: 20px;
         }
-        #main-chart-container { /* Container for the single chart */
-            margin-bottom: 20px;
-            min-height: 500px; /* Height for chart + navigator */
+        .chart-container {
+            margin-bottom: 30px;
+            min-height: 450px; /* Height for chart + navigator */
             border: 1px solid #e6e6e6;
             background-color: #fff;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+         .chart-metadata {
+             text-align: center;
+             color: #666;
+             font-size: 0.9em;
+             padding-top: 10px;
+             margin-bottom: -5px;
+             background-color: #fff; /* Match chart background */
+             position: relative; /* Prevent overlap */
+             z-index: 2;
         }
         .loading-message, .error-message {
             text-align: center;
@@ -43,6 +54,7 @@
              background-color: #fff;
         }
         h1 { text-align: center; color: #333; font-weight: 300; margin-bottom: 5px; }
+        h2 { text-align: center; color: #444; font-weight: 400; margin-top: 40px; margin-bottom: 15px; }
          a { color: #007bff; text-decoration: none; }
          a:hover { text-decoration: underline; }
 
@@ -56,39 +68,58 @@
             box-shadow: 1px 1px 4px rgba(0,0,0,0.2);
         }
 
-        /* Checkbox Selector Styling */
-        #chart-selectors {
-            background-color: #333; /* Dark background for selectors */
-            color: #eee;
+        /* Current Weather Section Styling */
+        #current-weather-container {
+            background-color: #fff;
+            border: 1px solid #e6e6e6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 15px 20px;
-            margin-top: 20px; /* Space below chart */
+            margin-bottom: 30px;
             border-radius: 5px;
+            text-align: center;
         }
-        #chart-selectors h3 {
-            margin-top: 0;
+        #current-weather-container .location {
+            font-size: 1.1em;
+            font-weight: bold;
             margin-bottom: 10px;
-            font-weight: 500;
-            border-bottom: 1px solid #555;
-            padding-bottom: 5px;
         }
-        .selector-columns {
+        #current-weather-container .details {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px; /* Space between columns */
+            justify-content: space-around;
+            align-items: center;
+            gap: 15px;
         }
-        .selector-column {
-            flex: 1; /* Equal width columns */
-            min-width: 180px; /* Minimum width before wrapping */
+        #current-weather-container .detail-item {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
         }
-        .selector-column label {
-            display: block; /* Each checkbox on its own line */
-            margin-bottom: 8px;
-            cursor: pointer;
-            font-size: 0.95em;
+        #current-weather-container .detail-item .value {
+            font-size: 1.4em;
+            font-weight: bold;
+            display: block;
         }
-         .selector-column input[type="checkbox"] {
-             margin-right: 8px;
-             vertical-align: middle;
+         #current-weather-container .detail-item .label {
+            font-size: 0.9em;
+            color: #666;
+            display: block;
+        }
+        #current-weather-container .time {
+            margin-top: 15px;
+            font-size: 0.85em;
+            color: #888;
+        }
+         #current-weather-container .weather-description {
+             font-size: 1.2em;
+             margin-top: 5px;
+             margin-bottom: 5px;
+             font-weight: 500;
+         }
+         hr.section-divider {
+             border: none;
+             border-top: 1px solid #eee;
+             margin: 40px 0;
          }
 
     </style>
@@ -96,91 +127,192 @@
 <body>
 <div class="page-container">
 
-    <h1>Shanghai Interactive Weather Chart</h1>
+    <h1>Shanghai Weather</h1>
      <p style="text-align: center; color: #666; margin-top: 0; margin-bottom: 20px;">
-        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Charts updated daily. Select variables below.
+        Data from Open-Meteo via <a href="https://github.com/thedeepdeepsky/weatherdaily" target="_blank" rel="noopener noreferrer">weatherdaily repo</a>. Current data updated hourly, charts updated daily.
     </p>
 
-    <!-- Status Message -->
-    <div id="status-message" class="loading-message">Loading forecast data...</div>
-    <div id="chart-error" class="error-message" style="display: none;"></div>
-
-    <!-- Single Chart Container -->
-    <div id="main-chart-container"></div>
-
-    <!-- Checkbox Selectors -->
-    <div id="chart-selectors" style="display: none;"> <!-- Hide until data loads -->
-       <div class="selector-columns">
-           <div class="selector-column">
-               <h3>Temperature / Humidity</h3>
-               <label><input type="checkbox" value="temperature_2m" data-unit="°C" data-name="Temperature (2m)" checked> Temperature (2m)</label>
-               <label><input type="checkbox" value="apparent_temperature" data-unit="°C" data-name="Apparent Temperature"> Apparent Temperature</label>
-               <label><input type="checkbox" value="dew_point_2m" data-unit="°C" data-name="Dew Point (2m)"> Dew Point (2m)</label>
-               <label><input type="checkbox" value="relative_humidity_2m" data-unit="%" data-name="Relative Humidity (2m)"> Relative Humidity (2m)</label>
-               <label><input type="checkbox" value="freezing_level_height" data-unit="m" data-name="Freezing Level Height"> Freezing Level Height</label>
-           </div>
-           <div class="selector-column">
-               <h3>Precipitation</h3>
-               <label><input type="checkbox" value="precipitation" data-unit="mm" data-name="Precipitation" data-type="column"> Precipitation</label>
-               <label><input type="checkbox" value="precipitation_probability" data-unit="%" data-name="Precipitation Probability"> Precipitation Probability</label>
-               <label><input type="checkbox" value="rain" data-unit="mm" data-name="Rain" data-type="column"> Rain</label>
-               <label><input type="checkbox" value="showers" data-unit="mm" data-name="Showers" data-type="column"> Showers</label>
-           </div>
-           <div class="selector-column">
-               <h3>Wind</h3>
-               <label><input type="checkbox" value="wind_speed_10m" data-unit="km/h" data-name="Wind Speed (10m)"> Wind Speed (10m)</label>
-               <label><input type="checkbox" value="wind_gusts_10m" data-unit="km/h" data-name="Wind Gusts (10m)"> Wind Gusts (10m)</label>
-               <label><input type="checkbox" value="wind_direction_10m" data-unit="°" data-name="Wind Direction (10m)"> Wind Direction (10m)</label>
+    <!-- Current Weather Section -->
+    <div id="current-weather-container" style="display: none;"> <!-- Hidden initially -->
+        <div class="location">Shanghai - Current Conditions</div>
+        <div class="details">
+            <div class="detail-item">
+                <span class="value" id="current-temp">-°C</span>
+                <span class="label">Temperature</span>
+                 <span class="value" id="current-apparent-temp" style="font-size: 1.1em; font-weight: normal;">(Feels like -°C)</span>
             </div>
-           <div class="selector-column">
-               <h3>Cloud / Pressure / Radiation</h3>
-               <label><input type="checkbox" value="cloud_cover" data-unit="%" data-name="Cloud Cover (Total)"> Cloud Cover (Total)</label>
-               <label><input type="checkbox" value="cloud_cover_low" data-unit="%" data-name="Cloud Cover (Low)"> Cloud Cover (Low)</label>
-               <label><input type="checkbox" value="cloud_cover_mid" data-unit="%" data-name="Cloud Cover (Mid)"> Cloud Cover (Mid)</label>
-               <label><input type="checkbox" value="cloud_cover_high" data-unit="%" data-name="Cloud Cover (High)"> Cloud Cover (High)</label>
-               <label><input type="checkbox" value="pressure_msl" data-unit="hPa" data-name="Pressure (MSL)"> Pressure (MSL)</label>
-               <label><input type="checkbox" value="surface_pressure" data-unit="hPa" data-name="Surface Pressure"> Surface Pressure</label>
-               <label><input type="checkbox" value="shortwave_radiation" data-unit="W/m²" data-name="Shortwave Radiation"> Shortwave Radiation</label>
-               <label><input type="checkbox" value="direct_radiation" data-unit="W/m²" data-name="Direct Radiation"> Direct Radiation</label>
-           </div>
-       </div>
+             <div class="detail-item">
+                <span class="value weather-description" id="current-description"></span>
+                 <span class="label">Conditions</span>
+             </div>
+             <div class="detail-item">
+                <span class="value" id="current-humidity">-%</span>
+                <span class="label">Humidity</span>
+            </div>
+            <div class="detail-item">
+                <span class="value" id="current-wind">- km/h</span>
+                <span class="label">Wind</span>
+                <span class="value" id="current-gusts" style="font-size: 1.1em; font-weight: normal;">(Gusts - km/h)</span>
+            </div>
+            <div class="detail-item">
+                <span class="value" id="current-pressure">- hPa</span>
+                <span class="label">Pressure (MSL)</span>
+            </div>
+             <div class="detail-item">
+                <span class="value" id="current-cloud-cover">-%</span>
+                <span class="label">Cloud Cover</span>
+            </div>
+        </div>
+        <div class="time">Last updated: <span id="current-time">-</span></div>
+    </div>
+    <div id="current-weather-error" class="error-message" style="display: none;"></div>
+
+    <hr class="section-divider">
+
+    <h2>Hourly Forecast Charts</h2>
+
+    <!-- Status Message for Charts -->
+    <div id="status-message" class="loading-message">Loading forecast charts...</div>
+
+    <!-- Chart Wrappers: Metadata + Container for EACH variable -->
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Temperature (2m)</div>
+        <div id="temperature_2m-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Relative Humidity (2m)</div>
+        <div id="relative_humidity_2m-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Dew Point (2m)</div>
+        <div id="dew_point_2m-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Apparent Temperature</div>
+        <div id="apparent_temperature-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Mean Sea Level Pressure</div>
+        <div id="pressure_msl-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Surface Pressure</div>
+        <div id="surface_pressure-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Total Cloud Cover</div>
+        <div id="cloud_cover-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Low Cloud Cover</div>
+        <div id="cloud_cover_low-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Mid Cloud Cover</div>
+        <div id="cloud_cover_mid-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - High Cloud Cover</div>
+        <div id="cloud_cover_high-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Wind Speed (10m)</div>
+        <div id="wind_speed_10m-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Wind Direction (10m)</div>
+        <div id="wind_direction_10m-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Wind Gusts (10m)</div>
+        <div id="wind_gusts_10m-chart" class="chart-container"></div>
+    </div>
+     <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Shortwave Radiation</div>
+        <div id="shortwave_radiation-chart" class="chart-container"></div>
+    </div>
+     <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Direct Radiation</div>
+        <div id="direct_radiation-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Precipitation</div>
+        <div id="precipitation-chart" class="chart-container"></div> <!-- Column -->
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Precipitation Probability</div>
+        <div id="precipitation_probability-chart" class="chart-container"></div>
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Rain</div>
+        <div id="rain-chart" class="chart-container"></div> <!-- Column -->
+    </div>
+    <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Showers</div>
+        <div id="showers-chart" class="chart-container"></div> <!-- Column -->
+    </div>
+     <div class="chart-wrapper">
+        <div class="chart-metadata">31.22°N 121.46°E 4m - Freezing Level Height</div>
+        <div id="freezing_level_height-chart" class="chart-container"></div>
     </div>
 
 </div> <!-- End page-container -->
 
 <script>
-    // URL for forecast data file
+    // URLs for data files from the weatherdaily repository
     const forecastDataUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/weather_data.json';
+    const currentWeatherDataFileUrl = 'https://raw.githubusercontent.com/thedeepdeepsky/weatherdaily/main/current_weather.json';
 
-    // DOM Elements
+    // DOM Elements for status messages
     const chartStatusDiv = document.getElementById('status-message');
-    const chartErrorDiv = document.getElementById('chart-error');
-    const mainChartContainer = document.getElementById('main-chart-container');
-    const selectorsDiv = document.getElementById('chart-selectors');
+    const currentStatusDiv = document.getElementById('current-weather-container');
+    const currentErrorDiv = document.getElementById('current-weather-error');
 
-    // Global variables
-    let mainChart = null; // Holds the Highcharts instance
-    let forecastData = null; // Holds the fetched hourly data object
-    const defaultSeriesColor = '#f5a623'; // Default orange
+    // Colors and Settings
+    const seriesColor = '#f5a623'; // Default orange color
 
-    // Define Y-Axes configuration based on units
-    // Assign unique IDs and potential sides (opposite: true for right side)
-    const yAxesConfig = [
-        { id: 'yaxis-temp', unit: '°C', title: { text: null }, labels: { format: '{value}°C' }, opposite: false },
-        { id: 'yaxis-percent', unit: '%', title: { text: null }, labels: { format: '{value}%' }, opposite: true, min: 0, max: 100 }, // Percent on right
-        { id: 'yaxis-mm', unit: 'mm', title: { text: null }, labels: { format: '{value} mm' }, opposite: true, min: 0 }, // Precip on right
-        { id: 'yaxis-hpa', unit: 'hPa', title: { text: null }, labels: { format: '{value} hPa' }, opposite: false }, // Pressure on left
-        { id: 'yaxis-kph', unit: 'km/h', title: { text: null }, labels: { format: '{value} km/h' }, opposite: true, min: 0 }, // Wind speed on right
-        { id: 'yaxis-deg', unit: '°', title: { text: null }, labels: { format: '{value}°' }, opposite: true, min: 0, max: 360, tickInterval: 90 }, // Direction on right
-        { id: 'yaxis-radiation', unit: 'W/m²', title: { text: null }, labels: { format: '{value} W/m²' }, opposite: false, min: 0 }, // Radiation on left
-        { id: 'yaxis-meters', unit: 'm', title: { text: null }, labels: { format: '{value} m' }, opposite: false, min: 0 } // Height on left
-    ];
+    // --- Helper: Weather Code Mapping (WMO Codes) ---
+    const weatherDescriptions = {
+      0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+      45: 'Fog', 48: 'Depositing rime fog',
+      51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+      56: 'Light freezing drizzle', 57: 'Dense freezing drizzle',
+      61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+      66: 'Light freezing rain', 67: 'Heavy freezing rain',
+      71: 'Slight snow fall', 73: 'Moderate snow fall', 75: 'Heavy snow fall',
+      77: 'Snow grains',
+      80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+      85: 'Slight snow showers', 86: 'Heavy snow showers',
+      95: 'Thunderstorm', 96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail'
+    };
+    function getWeatherDescription(code) {
+        return weatherDescriptions[code] ?? 'Unknown'; // Use ?? for nullish coalescing
+    }
 
-    // Map units to Y-Axis IDs for easy lookup
-    const yAxisMap = yAxesConfig.reduce((map, axis) => {
-        map[axis.unit] = axis.id;
-        return map;
-    }, {});
+    // --- Helper: Wind Direction ---
+    function getWindDirection(degrees) {
+        if (typeof degrees !== 'number') return '';
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const index = Math.round(degrees / 22.5) % 16;
+        return directions[index];
+    }
+
+    // --- Helper: Format Date/Time ---
+     function formatDateTime(isoString) {
+         if (!isoString) return '-';
+         try {
+             const date = new Date(isoString);
+             // Use Intl for better locale formatting if needed, otherwise basic approach:
+             return date.toLocaleString([], {
+                 year: 'numeric', month: 'short', day: 'numeric',
+                 hour: '2-digit', minute: '2-digit'
+             });
+         } catch (e) {
+             console.error("Error formatting date:", e);
+             return isoString; // Fallback
+         }
+     }
+
 
     // --- Function to transform forecast data to Highcharts format ---
     function transformData(times, values) {
@@ -191,162 +323,193 @@
          return times.map((timeStr, index) => {
              const timestamp = Date.parse(timeStr);
              const value = values[index];
-             if (!isNaN(timestamp) && value !== null) { return [timestamp, Number(value)]; }
-             return null;
-         }).filter(point => point !== null).sort((a, b) => a[0] - b[0]);
+             // Only return valid points (timestamp is a number, value is not null)
+             if (!isNaN(timestamp) && value !== null) {
+                return [timestamp, Number(value)];
+             }
+             return null; // Indicate an invalid point
+         }).filter(point => point !== null) // Remove invalid points
+           .sort((a, b) => a[0] - b[0]); // Ensure data is sorted by time
      }
 
-    // --- Function to handle checkbox changes ---
-    function handleCheckboxChange(event) {
-        if (!mainChart || !forecastData) return; // Don't do anything if chart/data not ready
+    // --- Helper Function to Create Highcharts Stock Chart ---
+    function createHighchartStock(options) {
+          const {
+                containerId, seriesData, seriesName, seriesUnit = '',
+                tooltipValueSuffix = '', tooltipDecimals = 1, yAxisTitle = null,
+                yAxisOptions = {}, chartType = 'line', color = seriesColor
+            } = options;
 
-        const checkbox = event.target;
-        const seriesId = checkbox.value; // e.g., 'temperature_2m'
-        const seriesName = checkbox.dataset.name || seriesId;
-        const seriesUnit = checkbox.dataset.unit || '';
-        const chartType = checkbox.dataset.type || 'line'; // Default to line, get 'column' if specified
-        const isChecked = checkbox.checked;
+            const defaultYAxisOptions = {
+                title: { text: yAxisTitle },
+                labels: {
+                    format: `{value}${seriesUnit ? ' ' + seriesUnit.replace('°', '°') : ''}`, // Add unit, handle degree symbol
+                    align: 'right', x: -5, style: { color: '#666' }
+                },
+                opposite: false, // Y Axis on left by default
+                gridLineColor: '#f0f0f0', lineColor: '#e6e6e6', tickColor: '#e6e6e6',
+                ...yAxisOptions // Merge specific options
+            };
 
-        const existingSeries = mainChart.get(seriesId);
+            try {
+                 // Check if data is valid before creating chart
+                 if (!seriesData || seriesData.length === 0) {
+                    console.warn(`Skipping chart ${containerId}: No valid data points.`);
+                    const chartDiv = document.getElementById(containerId);
+                    // Only display message if container exists
+                    if (chartDiv) chartDiv.innerHTML = `<p class="error-message" style="padding-top: 50px;">Data not available for this variable.</p>`;
+                    return false; // Indicate failure
+                 }
 
-        if (isChecked && !existingSeries) {
-            // Add Series
-            if (forecastData[seriesId]) {
-                const transformedData = transformData(forecastData.time, forecastData[seriesId]);
-                const yAxisId = yAxisMap[seriesUnit] || yAxesConfig[0].id; // Default to first axis if unit not mapped
-                const seriesColor = Highcharts.getOptions().colors[mainChart.series.length % Highcharts.getOptions().colors.length]; // Cycle through default colors
-
-                if (transformedData.length > 0) {
-                    mainChart.addSeries({
-                        id: seriesId,
+                Highcharts.stockChart(containerId, {
+                    chart: { backgroundColor: '#ffffff', style: { fontFamily: 'inherit' } }, // Inherit font
+                    navigator: { enabled: true, adaptToUpdatedData: true, height: 50, series: { type: 'line', color: color, lineWidth: 1, marker: { enabled: false } }, handles: { backgroundColor: '#ddeeff', borderColor: '#88aadd' }, maskFill: 'rgba(136, 170, 221, 0.2)', },
+                    scrollbar: { enabled: true, liveRedraw: false },
+                    rangeSelector: { enabled: false },
+                    title: { text: null }, subtitle: { text: null },
+                    xAxis: { type: 'datetime', ordinal: false, dateTimeLabelFormats: { hour: '%H:%M', day: '%e. %b', week: '%e. %b', month: '%b \'%y', year: '%Y' }, labels: { style: { color: '#666' } }, lineColor: '#e6e6e6', tickColor: '#e6e6e6' },
+                    yAxis: defaultYAxisOptions,
+                    tooltip: {
+                        split: false, shared: true, crosshairs: true, valueDecimals: tooltipDecimals,
+                        headerFormat: '<span style="font-size: 11px; color: #555;">{point.key:%A, %b %d, %Y %H:%M}</span><br/>',
+                        // pointFormat defined within series
+                    },
+                    legend: { enabled: true, layout: 'horizontal', align: 'center', verticalAlign: 'bottom', borderWidth: 0, itemStyle: { color: '#333', fontWeight: 'normal' } },
+                    plotOptions: {
+                        series: { marker: { enabled: false, radius: 3, states: { hover: { enabled: true, radius: 4 } } }, states: { hover: { lineWidthPlus: 0 } } },
+                        line: { lineWidth: 1.5 },
+                        column: { pointPadding: 0.1, borderWidth: 0, groupPadding: 0.1 }
+                    },
+                    series: [{
                         name: seriesName,
-                        data: transformedData,
+                        data: seriesData,
                         type: chartType,
-                        yAxis: yAxisId, // Link series to the correct Y-axis ID
-                        color: (seriesId === 'temperature_2m') ? defaultSeriesColor : seriesColor, // Keep temp orange, cycle others
+                        color: color,
+                         // Define tooltip content within the series for better context
                         tooltip: {
-                             pointFormat: `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}${seriesUnit ? ' ' + seriesUnit.replace('°', '°') : ''}</b><br/>`,
-                            valueDecimals: (seriesUnit === '%' || seriesUnit === '°') ? 0 : 1 // Fewer decimals for % and degrees
-                        },
-                        // Disable markers by default, enable on hover (inherited from plotOptions)
-                        marker: { enabled: false }
-                    });
-                } else {
-                    console.warn(`No valid data points found for ${seriesId}`);
-                    checkbox.checked = false; // Uncheck if no data
-                    alert(`No valid data found for ${seriesName}.`);
-                }
-            } else {
-                 console.warn(`Data key ${seriesId} not found in forecast data.`);
-                 checkbox.checked = false; // Uncheck if key doesn't exist
-                 alert(`Data for ${seriesName} is not available in the source file.`);
+                            pointFormat: `<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}${tooltipValueSuffix ? ' ' + tooltipValueSuffix.replace('°', '°') : ''}</b><br/>`,
+                            valueDecimals: tooltipDecimals // Ensure decimals are set correctly here
+                        }
+                    }],
+                    credits: { enabled: false }
+                });
+                return true; // Indicate success
+            } catch (error) {
+                console.error(`Error creating chart ${containerId}:`, error);
+                const chartDiv = document.getElementById(containerId);
+                if (chartDiv) chartDiv.innerHTML = `<p class="error-message">Could not load chart: ${error.message}</p>`;
+                return false; // Indicate failure
             }
-        } else if (!isChecked && existingSeries) {
-            // Remove Series
-            existingSeries.remove();
-        }
     }
 
-    // --- Initialize the Chart and Fetch Data ---
-    document.addEventListener('DOMContentLoaded', () => {
-        fetch(forecastDataUrl)
+    // --- Function to Fetch and Display Current Weather (from file) ---
+    function displayCurrentWeather() {
+        fetch(currentWeatherDataFileUrl)
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 404) throw new Error(`Current weather file not found (404). Has the hourly workflow run?`);
+                    throw new Error(`HTTP error fetching current weather file! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Current weather data loaded from file:", data);
+                if (!data || !data.current) throw new Error("Current weather data missing or invalid in the JSON file.");
+
+                const current = data.current;
+                const updateElement = (id, text) => {
+                    const el = document.getElementById(id);
+                    // Only update if element exists and value is not null/undefined
+                    if (el && text !== null && typeof text !== 'undefined') el.textContent = text;
+                    else if (el) el.textContent = '-'; // Default placeholder
+                    else console.warn(`Element with ID ${id} not found.`);
+                };
+
+                updateElement('current-temp', current.temperature_2m !== null ? `${current.temperature_2m?.toFixed(1)}°C` : '-');
+                updateElement('current-apparent-temp', current.apparent_temperature !== null ? `(Feels like ${current.apparent_temperature?.toFixed(1)}°C)` : '');
+                updateElement('current-description', getWeatherDescription(current.weather_code));
+                updateElement('current-humidity', current.relative_humidity_2m !== null ? `${current.relative_humidity_2m?.toFixed(0)}%` : '-');
+                const windDir = getWindDirection(current.wind_direction_10m);
+                updateElement('current-wind', current.wind_speed_10m !== null ? `${current.wind_speed_10m?.toFixed(1)} km/h ${windDir}` : '-');
+                updateElement('current-gusts', current.wind_gusts_10m !== null ? `(Gusts ${current.wind_gusts_10m?.toFixed(1)} km/h)` : '');
+                updateElement('current-pressure', current.pressure_msl !== null ? `${current.pressure_msl?.toFixed(1)} hPa` : '-');
+                updateElement('current-cloud-cover', current.cloud_cover !== null ? `${current.cloud_cover?.toFixed(0)}%` : '-');
+                updateElement('current-time', formatDateTime(current.time));
+
+                currentStatusDiv.style.display = 'block';
+                currentErrorDiv.style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error loading/displaying current weather from file:', error);
+                currentErrorDiv.textContent = `Could not load current weather: ${error.message}`;
+                currentErrorDiv.style.display = 'block';
+                currentStatusDiv.style.display = 'none';
+            });
+    }
+
+     // --- Function to Fetch and Display Forecast Charts ---
+    function displayForecastCharts() {
+         fetch(forecastDataUrl)
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP error fetching forecast file! status: ${response.status}`);
                 return response.json();
             })
             .then(data => {
                 console.log("Forecast data fetched successfully:", data);
+
                 if (!data || !data.hourly || !data.hourly.time) throw new Error('Forecast data is missing essential hourly time information.');
 
-                forecastData = data.hourly; // Store hourly data globally
+                const times = data.hourly.time;
+                let chartRendered = false;
+                const results = []; // To track success/failure of each chart
 
-                // --- Create the initial Highcharts Stock Chart ---
-                try {
-                    mainChart = Highcharts.stockChart('main-chart-container', {
-                        chart: { backgroundColor: '#ffffff', style: { fontFamily: 'inherit' }, zoomType: 'x' },
-                        navigator: {
-                             enabled: true, adaptToUpdatedData: false, // Don't adapt navigator height to new series
-                             height: 50,
-                             // Base navigator series on the default (temperature) data if available
-                             series: {
-                                type: 'line',
-                                data: forecastData.temperature_2m ? transformData(forecastData.time, forecastData.temperature_2m) : [],
-                                color: '#cccccc', // Light grey for navigator series line
-                                lineWidth: 1,
-                                marker: { enabled: false }
-                             },
-                             handles: { backgroundColor: '#ddeeff', borderColor: '#88aadd' },
-                             maskFill: 'rgba(136, 170, 221, 0.2)',
-                        },
-                        scrollbar: { enabled: true, liveRedraw: false },
-                        rangeSelector: { enabled: false },
-                        title: { text: null }, subtitle: { text: null },
-                        xAxis: { type: 'datetime', ordinal: false, dateTimeLabelFormats: { hour: '%H:%M', day: '%e. %b', week: '%e. %b', month: '%b \'%y', year: '%Y' }, labels: { style: { color: '#666' } }, lineColor: '#e6e6e6', tickColor: '#e6e6e6' },
-                        // Define ALL potential Y-Axes upfront
-                        yAxis: yAxesConfig.map(axis => ({
-                            id: axis.id, // Assign the ID
-                            title: axis.title,
-                            labels: axis.labels,
-                            opposite: axis.opposite,
-                            gridLineColor: '#f0f0f0',
-                            lineColor: '#e6e6e6',
-                            tickColor: '#e6e6e6',
-                            min: axis.min, // Apply min/max/tickInterval if defined
-                            max: axis.max,
-                            tickInterval: axis.tickInterval,
-                            // Don't show axis if no series are linked to it initially? Highcharts might do this.
-                            // showEmpty: false // Might hide axis if no series is attached
-                        })),
-                        tooltip: {
-                            split: false, shared: true, crosshairs: true,
-                            headerFormat: '<span style="font-size: 11px; color: #555;">{point.key:%A, %b %d, %Y %H:%M}</span><br/>',
-                            // pointFormat is set per series when added
-                            backgroundColor: 'rgba(255, 255, 255, 0.95)', // Style tooltip directly
-                            borderColor: '#f5a623',
-                            borderWidth: 1,
-                            shadow: true,
-                            padding: 10,
-                            borderRadius: 4,
-                            style: { color: '#333' }
-                        },
-                        legend: { enabled: true, layout: 'horizontal', align: 'center', verticalAlign: 'bottom', borderWidth: 0, itemStyle: { color: '#333', fontWeight: 'normal' } },
-                        plotOptions: {
-                            series: { marker: { enabled: false, radius: 3, states: { hover: { enabled: true, radius: 4 } } }, states: { hover: { lineWidthPlus: 0 } } },
-                            line: { lineWidth: 1.5 },
-                            column: { pointPadding: 0.1, borderWidth: 0, groupPadding: 0.1 }
-                        },
-                        series: [], // Start with no series in the main chart area
-                        credits: { enabled: false }
-                    });
+                // --- Generate Charts Sequentially ---
+                if (data.hourly.temperature_2m) { results.push(createHighchartStock({ containerId: 'temperature_2m-chart', seriesData: transformData(times, data.hourly.temperature_2m), seriesName: 'Temperature (2m)', seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1 })); }
+                if (data.hourly.relative_humidity_2m) { results.push(createHighchartStock({ containerId: 'relative_humidity_2m-chart', seriesData: transformData(times, data.hourly.relative_humidity_2m), seriesName: 'Relative Humidity (2m)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.dew_point_2m) { results.push(createHighchartStock({ containerId: 'dew_point_2m-chart', seriesData: transformData(times, data.hourly.dew_point_2m), seriesName: 'Dew Point (2m)', seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1 })); }
+                if (data.hourly.apparent_temperature) { results.push(createHighchartStock({ containerId: 'apparent_temperature-chart', seriesData: transformData(times, data.hourly.apparent_temperature), seriesName: 'Apparent Temperature', seriesUnit: '°C', tooltipValueSuffix: '°C', tooltipDecimals: 1 })); }
+                if (data.hourly.pressure_msl) { results.push(createHighchartStock({ containerId: 'pressure_msl-chart', seriesData: transformData(times, data.hourly.pressure_msl), seriesName: 'Pressure (MSL)', seriesUnit: 'hPa', tooltipValueSuffix: 'hPa', tooltipDecimals: 1 })); }
+                if (data.hourly.surface_pressure) { results.push(createHighchartStock({ containerId: 'surface_pressure-chart', seriesData: transformData(times, data.hourly.surface_pressure), seriesName: 'Surface Pressure', seriesUnit: 'hPa', tooltipValueSuffix: 'hPa', tooltipDecimals: 1 })); }
+                if (data.hourly.cloud_cover) { results.push(createHighchartStock({ containerId: 'cloud_cover-chart', seriesData: transformData(times, data.hourly.cloud_cover), seriesName: 'Cloud Cover (Total)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.cloud_cover_low) { results.push(createHighchartStock({ containerId: 'cloud_cover_low-chart', seriesData: transformData(times, data.hourly.cloud_cover_low), seriesName: 'Cloud Cover (Low)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.cloud_cover_mid) { results.push(createHighchartStock({ containerId: 'cloud_cover_mid-chart', seriesData: transformData(times, data.hourly.cloud_cover_mid), seriesName: 'Cloud Cover (Mid)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.cloud_cover_high) { results.push(createHighchartStock({ containerId: 'cloud_cover_high-chart', seriesData: transformData(times, data.hourly.cloud_cover_high), seriesName: 'Cloud Cover (High)', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.wind_speed_10m) { results.push(createHighchartStock({ containerId: 'wind_speed_10m-chart', seriesData: transformData(times, data.hourly.wind_speed_10m), seriesName: 'Wind Speed (10m)', seriesUnit: 'km/h', tooltipValueSuffix: 'km/h', tooltipDecimals: 1, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.wind_direction_10m) { results.push(createHighchartStock({ containerId: 'wind_direction_10m-chart', seriesData: transformData(times, data.hourly.wind_direction_10m), seriesName: 'Wind Direction (10m)', seriesUnit: '°', tooltipValueSuffix: '°', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 360, tickInterval: 45 } })); }
+                if (data.hourly.wind_gusts_10m) { results.push(createHighchartStock({ containerId: 'wind_gusts_10m-chart', seriesData: transformData(times, data.hourly.wind_gusts_10m), seriesName: 'Wind Gusts (10m)', seriesUnit: 'km/h', tooltipValueSuffix: 'km/h', tooltipDecimals: 1, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.shortwave_radiation) { results.push(createHighchartStock({ containerId: 'shortwave_radiation-chart', seriesData: transformData(times, data.hourly.shortwave_radiation), seriesName: 'Shortwave Radiation', seriesUnit: 'W/m²', tooltipValueSuffix: 'W/m²', tooltipDecimals: 0, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.direct_radiation) { results.push(createHighchartStock({ containerId: 'direct_radiation-chart', seriesData: transformData(times, data.hourly.direct_radiation), seriesName: 'Direct Radiation', seriesUnit: 'W/m²', tooltipValueSuffix: 'W/m²', tooltipDecimals: 0, yAxisOptions: { min: 0 } })); }
+                if (data.hourly.precipitation) { results.push(createHighchartStock({ containerId: 'precipitation-chart', seriesData: transformData(times, data.hourly.precipitation), seriesName: 'Precipitation', seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1, chartType: 'column', yAxisOptions: { min: 0 } })); }
+                if (data.hourly.precipitation_probability) { results.push(createHighchartStock({ containerId: 'precipitation_probability-chart', seriesData: transformData(times, data.hourly.precipitation_probability), seriesName: 'Precipitation Probability', seriesUnit: '%', tooltipValueSuffix: '%', tooltipDecimals: 0, yAxisOptions: { min: 0, max: 100 } })); }
+                if (data.hourly.rain) { results.push(createHighchartStock({ containerId: 'rain-chart', seriesData: transformData(times, data.hourly.rain), seriesName: 'Rain', seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1, chartType: 'column', yAxisOptions: { min: 0 } })); }
+                if (data.hourly.showers) { results.push(createHighchartStock({ containerId: 'showers-chart', seriesData: transformData(times, data.hourly.showers), seriesName: 'Showers', seriesUnit: 'mm', tooltipValueSuffix: 'mm', tooltipDecimals: 1, chartType: 'column', yAxisOptions: { min: 0 } })); }
+                if (data.hourly.freezing_level_height) { results.push(createHighchartStock({ containerId: 'freezing_level_height-chart', seriesData: transformData(times, data.hourly.freezing_level_height), seriesName: 'Freezing Level Height', seriesUnit: 'm', tooltipValueSuffix: 'm', tooltipDecimals: 0, yAxisOptions: { min: 0 } })); }
 
-                    // Add default series (Temperature) if data exists
-                    const defaultCheckbox = document.querySelector('input[type="checkbox"][value="temperature_2m"]');
-                    if (defaultCheckbox && forecastData.temperature_2m) {
-                         handleCheckboxChange({ target: defaultCheckbox }); // Simulate checking it
-                    }
+                // Check if at least one chart was successfully rendered
+                chartRendered = results.some(result => result === true);
 
-
-                    // Attach event listener to the container for checkboxes
-                    selectorsDiv.addEventListener('change', handleCheckboxChange);
-
-                    // Show selectors and hide loading message
-                    chartStatusDiv.style.display = 'none';
-                    selectorsDiv.style.display = 'block'; // Show the checkboxes
-
-                } catch (error) {
-                     console.error("Error creating initial Highcharts chart:", error);
-                     chartErrorDiv.textContent = `Failed to initialize chart: ${error.message}`;
-                     chartErrorDiv.style.display = 'block';
+                if (chartRendered) {
                      chartStatusDiv.style.display = 'none';
+                } else {
+                    // This means data file loaded but maybe no variables were present, or Highcharts failed
+                    chartStatusDiv.textContent = 'No forecast data available or charts failed to render.';
+                    chartStatusDiv.className = 'error-message';
+                    chartStatusDiv.style.display = 'block';
                 }
 
             })
             .catch(error => {
                 console.error('Error fetching or processing forecast data:', error);
-                chartErrorDiv.textContent = `Failed to load forecast data: ${error.message}. Please try again later.`;
-                chartErrorDiv.style.display = 'block';
-                chartStatusDiv.style.display = 'none';
+                chartStatusDiv.textContent = `Failed to load forecast charts: ${error.message}. Please try again later.`;
+                chartStatusDiv.className = 'error-message';
+                chartStatusDiv.style.display = 'block';
             });
+    }
+
+    // --- Run on Page Load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        displayCurrentWeather(); // Fetches current_weather.json
+        displayForecastCharts(); // Fetches weather_data.json
     });
 
 </script>
