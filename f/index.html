@@ -13,41 +13,21 @@
     <!-- Left Sidebar -->
     <aside class="w-16 bg-gray-800 flex flex-col items-center py-2 space-y-4">
       <!-- Search -->
-      <button title="Search" class="hover:bg-gray-700 p-2 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 15l4-4m0 0l4-4m-4 4H3m13 4v1m0-9v1" />
-        </svg>
+      <button title="Search" id="btnSearch" class="hover:bg-gray-700 p-2 rounded">
+        <!-- icon omitted -->
       </button>
-      <!-- Flights -->
-      <button title="Flights" class="hover:bg-gray-700 p-2 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-        </svg>
-      </button>
-      <!-- Airports -->
-      <button title="Airports" class="hover:bg-gray-700 p-2 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15l6-6m0 0l6-6m-6 6h12" />
-        </svg>
-      </button>
-      <!-- Pinboards -->
-      <button title="Pinboards" class="hover:bg-gray-700 p-2 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 1.343-3 3v7a1 1 0 001 1h4a1 1 0 001-1v-7c0-1.657-1.343-3-3-3z" />
-        </svg>
+      <!-- Map / Charts toggle -->
+      <button title="Toggle Charts" id="btnCharts" class="hover:bg-gray-700 p-2 rounded">
+        <!-- icon omitted -->
       </button>
       <!-- User WPTs -->
-      <button title="User WPTs" class="hover:bg-gray-700 p-2 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+      <button title="User WPTs" id="btnWpts" class="hover:bg-gray-700 p-2 rounded">
+        <!-- icon omitted -->
       </button>
       <div class="flex-1"></div>
       <!-- Settings -->
       <button title="Settings" class="hover:bg-gray-700 p-2 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M19.4 15a1.65 1.65 0 01-2.33.73 1.65 1.65 0 01-.77-2.06l.36-1.17a1.65 1.65 0 00-.33-1.66l-.88-.88a1.65 1.65 0 00-1.66-.33l-1.17.36a1.65 1.65 0 01-2.06-.77L9 4.6" />
-        </svg>
+        <!-- icon omitted -->
       </button>
     </aside>
 
@@ -55,112 +35,170 @@
     <div class="flex-1 flex flex-col">
       <!-- Top Toolbar -->
       <header class="flex items-center bg-gray-800 px-4 space-x-2 overflow-x-auto h-12">
-        <input id="searchInput" type="text" placeholder="Search ident or waypoint" 
-               class="bg-gray-700 placeholder-gray-400 rounded-full px-3 py-1 w-64 focus:outline-none" />
-        <div id="routeTags" class="flex space-x-1">
-          <!-- dynamic tags -->
-        </div>
-        <button id="toggleLayers" class="ml-auto bg-gray-700 px-3 py-1 rounded">Toggle Charts</button>
+        <input id="searchInput" type="text" placeholder="Search waypoint / departure / arrival / approach" 
+               class="bg-gray-700 placeholder-gray-400 rounded-full px-3 py-1 w-72 focus:outline-none" />
+        <button id="searchMode" class="bg-teal-600 px-2 py-0.5 rounded text-sm">Waypoint</button>
+        <div id="routeTags" class="flex space-x-1"></div>
       </header>
 
       <!-- Map Canvas -->
       <main class="flex-1 relative">
         <div id="map" class="w-full h-full"></div>
         <div id="infoPanel" class="absolute top-4 right-4 bg-gray-800 p-3 rounded shadow-lg hidden max-w-xs">
-          <h4 class="font-semibold mb-2">Waypoint Info</h4>
+          <h4 class="font-semibold mb-2">Info</h4>
           <div id="infoContent" class="text-sm"></div>
         </div>
       </main>
 
       <!-- Bottom Procedure Bar -->
       <footer class="bg-gray-800 px-4 py-2 flex items-center space-x-2 overflow-x-auto h-16">
-        <button id="btnAirportInfo" class="bg-gray-700 px-3 py-1 rounded">Airport Info</button>
-        <button id="btnDepartures" class="bg-gray-700 px-3 py-1 rounded">Departures</button>
-        <button id="btnArrivals" class="bg-gray-700 px-3 py-1 rounded">Arrivals</button>
-        <button id="btnApproaches" class="bg-gray-700 px-3 py-1 rounded">Approaches</button>
+        <button data-mode="departure" class="proc-btn bg-gray-700 px-3 py-1 rounded">Departures</button>
+        <button data-mode="arrival" class="proc-btn bg-gray-700 px-3 py-1 rounded">Arrivals</button>
+        <button data-mode="approach" class="proc-btn bg-gray-700 px-3 py-1 rounded">Approaches</button>
         <div class="flex-1"></div>
-        <button id="btnSave" class="bg-blue-600 px-3 py-1 rounded">Save as</button>
+        <button id="btnSave" class="bg-blue-600 px-3 py-1 rounded">Save</button>
         <button id="btnEdit" class="bg-yellow-500 px-3 py-1 rounded">Edit</button>
       </footer>
     </div>
   </div>
 
   <script>
-    // Initialize map
+    // Latest AIRAC cycle identifier (update per cycle)
+    // AviationAPI Base URL for charts and airport info
+    const AVIATIONAPI_BASE = 'https://api.aviationapi.com/v1';
+
+    // Map init
     const map = L.map('map').setView([29.5, -89.0], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM' }).addTo(map);
 
     let flightPlan = [];
     let routeLine;
-    const markers = [];
 
+    // Fetch waypoint via AviationAPI (airport info placeholder)
     async function lookupWaypoint(ident) {
-      // replace URL with real API endpoint
-      const resp = await fetch(`https://api.example.com/waypoints/${ident}`);
-      if(!resp.ok) throw new Error('Not found');
-      return resp.json(); // { lat, lng, name, type }
+      // AviationAPI does not provide waypoint nav data; skip or use airport coords
+      const resp = await fetch(`${AVIATIONAPI_BASE}/airport-info?icao=${ident}`);
+      if(!resp.ok) throw new Error('Airport not found');
+      const data = await resp.json();
+      // AviationAPI returns keyed object by ICAO
+      const info = data[ident];
+      return { lat: parseFloat(info.latitude), lng: parseFloat(info.longitude), name: info.name };
     }
 
+    // Fetch procedures: chart PDFs for departures/arrivals/approach
+    async function lookupProcedures(type, airport) {
+      // type = 'dep'|'arr'|'app' => map to endpoint path
+      const endpoint = type === 'departure' ? 'charts' : type === 'arrival' ? 'charts' : 'charts';
+      const resp = await fetch(`${AVIATIONAPI_BASE}/${endpoint}?apt=${airport}`);
+      if(!resp.ok) throw new Error('Charts not found');
+      const data = await resp.json();
+      // charts are grouped in categories in return JSON
+      const charts = [];
+      if(data[airport] && data[airport].Charts) {
+        for(const c of data[airport].Charts) charts.push(c.Url);
+      }
+      return charts; // array of PDF URLs
+    }
+
+    // Add to map & plan
     function addWaypoint(lat, lng, ident) {
-      const marker = L.marker([lat, lng]).addTo(map).on('click', () => showInfo(ident, lat, lng));
-      markers.push(marker);
-      flightPlan.push([lat, lng]);
-      drawRoute();
-      addTag(ident);
+      L.marker([lat, lng]).addTo(map).on('click', () => showInfo({ident, lat, lng}));
+      flightPlan.push([lat, lng]); drawRoute(); addTag(ident);
     }
 
     function drawRoute() {
       if(routeLine) map.removeLayer(routeLine);
       routeLine = L.polyline(flightPlan, { color: 'magenta', weight: 3 }).addTo(map);
-      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+      map.fitBounds(routeLine.getBounds(), { padding: [40,40] });
     }
 
     function addTag(ident) {
-      const tag = document.createElement('span');
-      tag.textContent = ident;
-      tag.className = 'bg-teal-600 px-2 py-0.5 rounded text-sm cursor-pointer hover:bg-teal-500';
-      tag.onclick = () => focusWaypoint(ident);
-      document.getElementById('routeTags').appendChild(tag);
+      const span = document.createElement('span');
+      span.textContent = ident;
+      span.className = 'bg-teal-600 px-2 py-0.5 rounded text-sm cursor-pointer';
+      document.getElementById('routeTags').append(span);
     }
 
-    function focusWaypoint(ident) {
-      const idx = flightPlan.findIndex((_, i) => document.getElementById('routeTags').children[i].textContent === ident);
-      if(idx >= 0) map.setView(flightPlan[idx], 10);
-    }
-
-    function showInfo(ident, lat, lng) {
+    function showInfo(data) {
       const panel = document.getElementById('infoPanel');
       panel.classList.remove('hidden');
-      document.getElementById('infoContent').innerHTML = 
-        `<p><strong>ID:</strong> ${ident}</p>
-         <p><strong>Lat/Lng:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>`;
+      let html = '';
+      for(let key in data) html += `<p><strong>${key}:</strong> ${data[key]}</p>`;
+      document.getElementById('infoContent').innerHTML = html;
     }
 
-    // Search handler
+    // Search handling
+    const modes = ['Waypoint','departure','arrival','approach'];
+    let currentMode = 'Waypoint';
+    document.getElementById('searchMode').onclick = () => {
+      const idx = modes.indexOf(currentMode);
+      currentMode = modes[(idx+1)%modes.length];
+      document.getElementById('searchMode').textContent = currentMode;
+    };
+
     document.getElementById('searchInput').addEventListener('keydown', async e => {
       if(e.key === 'Enter') {
         const ident = e.target.value.trim().toUpperCase();
         try {
-          const { lat, lng } = await lookupWaypoint(ident);
-          addWaypoint(lat, lng, ident);
-        } catch {
-          alert('Waypoint not found');
+          if(currentMode === 'Waypoint') {
+            const wp = await lookupWaypoint(ident);
+            addWaypoint(wp.lat, wp.lng, ident);
+          } else {
+            const urls = await lookupProcedures(currentMode, ident);
+            if(urls.length === 0) throw new Error('No charts found');
+            // display first chart PDF in info panel
+            showInfo({ type: currentMode, chart: `<a href='${urls[0]}' target='_blank'>View Chart</a>` });
+          }
+        } catch(err) {
+          alert(err.message);
         }
         e.target.value = '';
       }
     });
 
-    // Layer toggle
-    document.getElementById('toggleLayers').addEventListener('click', () => {
-      // toggle IFR/highchart overlays,
-      alert('Toggle chart layers');
+    // Bottom proc buttons quick search
+    document.querySelectorAll('.proc-btn').forEach(btn => {
+      btn.onclick = () => {
+        currentMode = btn.dataset.mode;
+        document.getElementById('searchMode').textContent = currentMode;
+        document.getElementById('searchInput').focus();
+      };
+    });
+    const modes = ['Waypoint','departure','arrival','approach'];
+    let currentMode = 'Waypoint';
+    document.getElementById('searchMode').onclick = () => {
+      const idx = modes.indexOf(currentMode);
+      currentMode = modes[(idx+1)%modes.length];
+      document.getElementById('searchMode').textContent = currentMode;
+    };
+
+    document.getElementById('searchInput').addEventListener('keydown', async e => {
+      if(e.key === 'Enter') {
+        const ident = e.target.value.trim().toUpperCase();
+        try {
+          if(currentMode === 'Waypoint') {
+            const wp = await lookupWaypoint(ident);
+            addWaypoint(wp.lat, wp.lng, ident);
+          } else {
+            const procs = await lookupProcedures(currentMode, ident);
+            // display list in infoPanel
+            showInfo({ type: currentMode, items: procs.map(p=>p.name).join(', ') });
+          }
+        } catch(err) {
+          alert(err.message);
+        }
+        e.target.value = '';
+      }
     });
 
-    // Example initial points
-    addWaypoint(29.9844, -95.3414, 'KIAH');
-    addWaypoint(26.0726, -80.1527, 'KFLL');
+    // Bottom proc buttons quick search
+    document.querySelectorAll('.proc-btn').forEach(btn => {
+      btn.onclick = () => {
+        currentMode = btn.dataset.mode;
+        document.getElementById('searchMode').textContent = currentMode;
+        document.getElementById('searchInput').focus();
+      };
+    });
   </script>
 </body>
 </html>
