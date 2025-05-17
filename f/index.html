@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flight Charts Planner</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="flex h-screen overflow-hidden">
+    <!-- Left Sidebar -->
+    <aside class="w-16 bg-gray-800 flex flex-col items-center py-2 space-y-4">
+      <!-- Search -->
+      <button title="Search" class="hover:bg-gray-700 p-2 rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 15l4-4m0 0l4-4m-4 4H3m13 4v1m0-9v1" />
+        </svg>
+      </button>
+      <!-- Flights -->
+      <button title="Flights" class="hover:bg-gray-700 p-2 rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+      </button>
+      <!-- Airports -->
+      <button title="Airports" class="hover:bg-gray-700 p-2 rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15l6-6m0 0l6-6m-6 6h12" />
+        </svg>
+      </button>
+      <!-- Pinboards -->
+      <button title="Pinboards" class="hover:bg-gray-700 p-2 rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 1.343-3 3v7a1 1 0 001 1h4a1 1 0 001-1v-7c0-1.657-1.343-3-3-3z" />
+        </svg>
+      </button>
+      <!-- User WPTs -->
+      <button title="User WPTs" class="hover:bg-gray-700 p-2 rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <div class="flex-1"></div>
+      <!-- Settings -->
+      <button title="Settings" class="hover:bg-gray-700 p-2 rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M19.4 15a1.65 1.65 0 01-2.33.73 1.65 1.65 0 01-.77-2.06l.36-1.17a1.65 1.65 0 00-.33-1.66l-.88-.88a1.65 1.65 0 00-1.66-.33l-1.17.36a1.65 1.65 0 01-2.06-.77L9 4.6" />
+        </svg>
+      </button>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top Toolbar -->
+      <header class="flex items-center bg-gray-800 px-4 space-x-2 overflow-x-auto h-12">
+        <input id="searchInput" type="text" placeholder="Search ident or waypoint" 
+               class="bg-gray-700 placeholder-gray-400 rounded-full px-3 py-1 w-64 focus:outline-none" />
+        <div id="routeTags" class="flex space-x-1">
+          <!-- dynamic tags -->
+        </div>
+        <button id="toggleLayers" class="ml-auto bg-gray-700 px-3 py-1 rounded">Toggle Charts</button>
+      </header>
+
+      <!-- Map Canvas -->
+      <main class="flex-1 relative">
+        <div id="map" class="w-full h-full"></div>
+        <div id="infoPanel" class="absolute top-4 right-4 bg-gray-800 p-3 rounded shadow-lg hidden max-w-xs">
+          <h4 class="font-semibold mb-2">Waypoint Info</h4>
+          <div id="infoContent" class="text-sm"></div>
+        </div>
+      </main>
+
+      <!-- Bottom Procedure Bar -->
+      <footer class="bg-gray-800 px-4 py-2 flex items-center space-x-2 overflow-x-auto h-16">
+        <button id="btnAirportInfo" class="bg-gray-700 px-3 py-1 rounded">Airport Info</button>
+        <button id="btnDepartures" class="bg-gray-700 px-3 py-1 rounded">Departures</button>
+        <button id="btnArrivals" class="bg-gray-700 px-3 py-1 rounded">Arrivals</button>
+        <button id="btnApproaches" class="bg-gray-700 px-3 py-1 rounded">Approaches</button>
+        <div class="flex-1"></div>
+        <button id="btnSave" class="bg-blue-600 px-3 py-1 rounded">Save as</button>
+        <button id="btnEdit" class="bg-yellow-500 px-3 py-1 rounded">Edit</button>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    // Initialize map
+    const map = L.map('map').setView([29.5, -89.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let flightPlan = [];
+    let routeLine;
+    const markers = [];
+
+    async function lookupWaypoint(ident) {
+      // replace URL with real API endpoint
+      const resp = await fetch(`https://api.example.com/waypoints/${ident}`);
+      if(!resp.ok) throw new Error('Not found');
+      return resp.json(); // { lat, lng, name, type }
+    }
+
+    function addWaypoint(lat, lng, ident) {
+      const marker = L.marker([lat, lng]).addTo(map).on('click', () => showInfo(ident, lat, lng));
+      markers.push(marker);
+      flightPlan.push([lat, lng]);
+      drawRoute();
+      addTag(ident);
+    }
+
+    function drawRoute() {
+      if(routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(flightPlan, { color: 'magenta', weight: 3 }).addTo(map);
+      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+    }
+
+    function addTag(ident) {
+      const tag = document.createElement('span');
+      tag.textContent = ident;
+      tag.className = 'bg-teal-600 px-2 py-0.5 rounded text-sm cursor-pointer hover:bg-teal-500';
+      tag.onclick = () => focusWaypoint(ident);
+      document.getElementById('routeTags').appendChild(tag);
+    }
+
+    function focusWaypoint(ident) {
+      const idx = flightPlan.findIndex((_, i) => document.getElementById('routeTags').children[i].textContent === ident);
+      if(idx >= 0) map.setView(flightPlan[idx], 10);
+    }
+
+    function showInfo(ident, lat, lng) {
+      const panel = document.getElementById('infoPanel');
+      panel.classList.remove('hidden');
+      document.getElementById('infoContent').innerHTML = 
+        `<p><strong>ID:</strong> ${ident}</p>
+         <p><strong>Lat/Lng:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>`;
+    }
+
+    // Search handler
+    document.getElementById('searchInput').addEventListener('keydown', async e => {
+      if(e.key === 'Enter') {
+        const ident = e.target.value.trim().toUpperCase();
+        try {
+          const { lat, lng } = await lookupWaypoint(ident);
+          addWaypoint(lat, lng, ident);
+        } catch {
+          alert('Waypoint not found');
+        }
+        e.target.value = '';
+      }
+    });
+
+    // Layer toggle
+    document.getElementById('toggleLayers').addEventListener('click', () => {
+      // toggle IFR/highchart overlays,
+      alert('Toggle chart layers');
+    });
+
+    // Example initial points
+    addWaypoint(29.9844, -95.3414, 'KIAH');
+    addWaypoint(26.0726, -80.1527, 'KFLL');
+  </script>
+</body>
+</html>
