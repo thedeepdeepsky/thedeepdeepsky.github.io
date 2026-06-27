@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>二钥 efile 浏览器加密器</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 18px; line-height: 1.45; }
+    h1 { font-size: 1.35rem; margin: 0 0 12px; }
+    fieldset { border: 1px solid #9995; border-radius: 10px; padding: 12px; margin: 12px 0; }
+    legend { padding: 0 6px; font-weight: 700; }
+    label { display: block; margin: 10px 0 4px; font-weight: 600; }
+    input[type="file"], input[type="password"], input[type="text"], input[type="number"], textarea { width: 100%; box-sizing: border-box; }
+    input[type="password"], input[type="text"], input[type="number"], textarea { padding: 8px; border: 1px solid #9998; border-radius: 8px; }
+    textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; }
+    button { margin-top: 12px; padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #8881; border-radius: 10px; padding: 12px; min-height: 120px; }
+    .note { font-size: 0.92rem; opacity: 0.85; }
+    .danger { color: #b00020; font-weight: 700; }
+    .ok { color: #007000; font-weight: 700; }
+    a.download { display: inline-block; margin: 8px 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #8882; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>二钥 efile 浏览器加密器</h1>
+  <p class="note">本页面离线运行；用于对标 <code>02.py</code>。它会读取 Root CA / signer / recipient，自动为本次 efile 生成一套 authority/auth key + cert，然后输出 .efile 和三个 decrypt_mobile.html 兼容文本包。</p>
+  <p class="note danger">浏览器版只生成完整 .efile，不生成 Python 版 sidecar <code>.efile.fec</code> 纠错文件。</p>
+
+  <fieldset>
+    <legend>1. 证书文字 bundle，可替代下面的文件选择</legend>
+    <p class="note">支持 <code>[root_ca.key]</code>、<code>[root_ca.cert]</code>、<code>[signer.key]</code>、<code>[signer.cert]</code>、<code>[recipient.cert]</code>。<code>[recipient.key]</code> 可选：提供后会被写入解密主 bundle；不提供也可以加密，解密时再单独提供 recipient 私钥。</p>
+    <textarea id="pkiBundle" spellcheck="false" placeholder="[root_ca.key]:
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+...
+-----END ENCRYPTED PRIVATE KEY-----
+
+[root_ca.cert]:
+-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+
+[signer.key]:
+...
+
+[signer.cert]:
+...
+
+[recipient.cert]:
+...
+
+[recipient.key]:
+...（可选）"></textarea>
+    <button id="parseBundleBtn" type="button">解析证书文字 bundle</button>
+    <p id="bundleStatus" class="note"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. 或选择 PEM 文件</legend>
+    <div class="grid">
+      <div><label>Root CA 证书 root_ca.cert.pem</label><input id="caCert" type="file" accept=".pem,.crt,.cert" /></div>
+      <div><label>Root CA 私钥 root_ca.key.pem</label><input id="caKey" type="file" accept=".pem,.key" /></div>
+      <div><label>signer 证书 signer.cert.pem</label><input id="signerCert" type="file" accept=".pem,.crt,.cert" /></div>
+      <div><label>signer 私钥 signer.key.pem</label><input id="signerKey" type="file" accept=".pem,.key" /></div>
+      <div><label>recipient 证书 recipient.cert.pem</label><input id="recipientCert" type="file" accept=".pem,.crt,.cert" /></div>
+      <div><label>recipient 私钥 recipient.key.pem（可选；仅用于输出完整解密 bundle，不会解密读取）</label><input id="recipientKey" type="file" accept=".pem,.key" /></div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. 私钥口令和 auth 参数</legend>
+    <div class="grid">
+      <div><label>Root CA 私钥口令</label><input id="rootPassword" type="password" autocomplete="off" /></div>
+      <div><label>signer 私钥口令</label><input id="signerPassword" type="password" autocomplete="off" /></div>
+      <div><label>本次 efile 专属 auth 私钥口令</label><input id="authorityPassword" type="password" autocomplete="off" /></div>
+      <div><label>auth 文件名后缀，可留空自动取 efile 前缀</label><input id="authName" type="text" placeholder="例如 projectA，最终显示为 authen_projectA" /></div>
+      <div><label>auth 证书 Common Name，可留空自动生成</label><input id="authCN" type="text" /></div>
+      <div><label>auth 证书有效年限</label><input id="authYears" type="number" value="3" min="1" max="20" /></div>
+      <div><label>自动生成 auth RSA 位数</label><input id="rsaBits" type="number" value="3072" min="2048" step="1024" /></div>
+      <div><label>auth 私钥 PBKDF2 迭代次数</label><input id="iterations" type="number" value="200000" min="10000" step="10000" /></div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. 待加密内容</legend>
+    <label>待加密文件，选择后优先使用文件</label>
+    <input id="plainFile" type="file" />
+    <label>或直接输入待加密文本</label>
+    <textarea id="plainText" spellcheck="false" placeholder="这里输入文字也可以直接加密"></textarea>
+    <label>输出 efile 文件名，可留空自动生成</label>
+    <input id="efileName" type="text" placeholder="例如 locked.efile" />
+  </fieldset>
+
+  <button id="encryptBtn">加密并生成 auth files / bundle / efile</button>
+
+  <fieldset>
+    <legend>5. 单独 efile 文本包</legend>
+    <p class="note">只包含 <code>[efile]</code>，方便单独发送或粘贴到解密页的 .efile 文本包输入框。</p>
+    <textarea id="efileOnlyBundle" spellcheck="false"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>6. authfile + efile bundle</legend>
+    <p class="note">包含 <code>[efile]</code>、<code>[authority.key]</code>、<code>[authority.cert]</code>。适合把本次 efile 和对应 auth files 作为一组单独保存。</p>
+    <textarea id="authEfileBundle" spellcheck="false"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>7. 解密全套 bundle</legend>
+    <p class="note">给 decrypt_mobile.html 一次性粘贴使用：<code>[efile]</code>、<code>[root_ca.cert]</code>、<code>[recipient.cert]</code>、<code>[authority.key]</code>、<code>[authority.cert]</code>。如果输入了 <code>[recipient.key]</code>，这里也会一并输出；否则解密方需要再单独提供 recipient 私钥。</p>
+    <textarea id="mainBundle" spellcheck="false"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>8. 下载</legend>
+    <div id="downloadArea"></div>
+  </fieldset>
+
+  <h2>日志</h2>
+  <pre id="log"></pre>
+
+<script>
+(() => {
+  "use strict";
+
+  const FORMAT = "hazmat-efile-two-key-v1";
+  const CONTENT_ALG = "AES-256-GCM";
+  const KEY_WRAP_ALG = "RSA-OAEP-SHA256";
+  const KEY_SPLIT_ALG = "HKDF-SHA256-K1-K2";
+  const SIGNATURE_ALG = "RSA-PSS-SHA256";
+  const OAEP_LABEL_K1 = "hazmat-efile-two-key-v1 recipient K1";
+  const OAEP_LABEL_K2 = "hazmat-efile-two-key-v1 authority K2";
+  const HKDF_INFO = "hazmat-efile-two-key-v1 CEK derivation";
+  const SIG_PREFIX = new TextEncoder().encode("HAZMAT-EFILE-TWO-KEY-SIG-V1\x00");
+
+  const $ = (id) => document.getElementById(id);
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const logEl = $("log");
+  let bundleMap = new Map();
+  let bundleNames = new Map();
+
+  const RESOURCE_ALIASES = {
+    caCert: ["root_ca.cert", "root.cert", "ca.cert", "root_ca_cert", "root_cert", "ca_cert", "root_ca", "ca", "root"],
+    caKey: ["root_ca.key", "root.key", "ca.key", "root_ca_key", "root_key", "ca_key"],
+    signerCert: ["signer.cert", "signer_cert", "signing.cert", "signing_cert", "signer"],
+    signerKey: ["signer.key", "signer_key", "signing.key", "signing_key"],
+    recipientCert: ["recipient.cert", "recipient_cert", "recipient", "bob.cert", "bob_cert"],
+    recipientKey: ["recipient.key", "recipient_key", "recipient.private", "recipient_private", "bob.key", "bob_key"]
+  };
+
+  function log(msg) { logEl.textContent += msg + "\n"; }
+  function clearLog() { logEl.textContent = ""; $("downloadArea").innerHTML = ""; }
+  function strBytes(s) { return enc.encode(String(s)); }
+  function concat(...parts) { const total = parts.reduce((n,p)=>n+p.length,0); const out = new Uint8Array(total); let off=0; for (const p of parts) { out.set(p, off); off += p.length; } return out; }
+  function u64be(n) { const out = new Uint8Array(8); let x = BigInt(n); for (let i=7;i>=0;i--) { out[i] = Number(x & 255n); x >>= 8n; } return out; }
+  function bytesToHex(bytes) { return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(""); }
+  async function digest(name, bytes) { return new Uint8Array(await crypto.subtle.digest(name, bytes)); }
+  async function sha1(bytes) { return digest("SHA-1", bytes); }
+  async function sha256(bytes) { return digest("SHA-256", bytes); }
+  async function sha256Hex(bytes) { return bytesToHex(await sha256(bytes)); }
+  function b64u(bytes) { let bin=""; for (const b of bytes) bin += String.fromCharCode(b); return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,""); }
+  function normalizeName(name) { return String(name || "").trim().toLowerCase().replace(/\s+/g, "").replace(/-/g, "_").replace(/\.(pem|crt|cer)$/g, ""); }
+  function parseBracketBundle(raw) {
+    const source = String(raw || ""); const map = new Map(), names = new Map();
+    const markerRe = /(^|\n)\s*\[([^\]]+)\]\s*:\s*/g; const matches = Array.from(source.matchAll(markerRe));
+    for (let i=0;i<matches.length;i++) {
+      const nameRaw = matches[i][2].trim();
+      const contentStart = matches[i].index + matches[i][0].length;
+      const contentEnd = i + 1 < matches.length ? matches[i+1].index : source.length;
+      let content = source.slice(contentStart, contentEnd).trim();
+      if (!content) continue; if (!content.endsWith("\n")) content += "\n";
+      const norm = normalizeName(nameRaw); map.set(norm, content); names.set(norm, nameRaw);
+    }
+    return { map, names, count: matches.length };
+  }
+  function parseBundle({ silent = false } = {}) {
+    const parsed = parseBracketBundle($("pkiBundle").value);
+    bundleMap = parsed.map; bundleNames = parsed.names;
+    const msg = parsed.count ? `已解析证书 bundle ${bundleMap.size} 段：${Array.from(bundleNames.values()).join(", ")}` : "未填写或未识别证书 bundle；将使用文件选择框。";
+    $("bundleStatus").textContent = msg; if (!silent) log(msg);
+  }
+  function resolveBundleText(key) {
+    for (const alias of RESOURCE_ALIASES[key] || []) { const norm = normalizeName(alias); if (bundleMap.has(norm)) return { text: bundleMap.get(norm), name: bundleNames.get(norm) || alias }; }
+    return null;
+  }
+  async function readFileBytes(inputId, label) {
+    const file = $(inputId).files && $(inputId).files[0];
+    if (!file) throw new Error(`缺少文件或 bundle 段：${label}`);
+    log(`准备读取 ${label}: ${file.name}`);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    log(`已读取 ${label}: ${file.name} (${bytes.length} bytes)`);
+    return { bytes, text: dec.decode(bytes), name: file.name };
+  }
+  async function readPemResource(inputId, key, label) {
+    const bundled = resolveBundleText(key);
+    if (bundled) { log(`准备读取 ${label}: 文字 bundle [${bundled.name}]`); return { bytes: strBytes(bundled.text), text: bundled.text, name: bundled.name }; }
+    return await readFileBytes(inputId, label);
+  }
+  async function readOptionalPemResource(inputId, key, label) {
+    const bundled = resolveBundleText(key);
+    if (bundled) { log(`准备读取 ${label}: 文字 bundle [${bundled.name}]`); return { bytes: strBytes(bundled.text), text: bundled.text, name: bundled.name }; }
+    const file = $(inputId).files && $(inputId).files[0];
+    if (!file) { log(`${label} 未提供；将不写入解密主 bundle。`); return null; }
+    log(`准备读取 ${label}: ${file.name}`);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    log(`已读取 ${label}: ${file.name} (${bytes.length} bytes)`);
+    return { bytes, text: dec.decode(bytes), name: file.name };
+  }
+
+  function derLen(n) { if (n < 128) return new Uint8Array([n]); const b=[]; while(n>0){b.unshift(n&255); n>>=8;} return new Uint8Array([0x80|b.length,...b]); }
+  function der(tag, content) { return concat(new Uint8Array([tag]), derLen(content.length), content); }
+  function seq(...items) { return der(0x30, concat(...items)); }
+  function setOf(...items) { return der(0x31, concat(...items)); }
+  function nul() { return new Uint8Array([0x05,0x00]); }
+  function bool(v) { return der(0x01, new Uint8Array([v ? 0xff : 0])); }
+  function octet(bytes) { return der(0x04, bytes); }
+  function utf8(s) { return der(0x0c, strBytes(s)); }
+  function printable(s) { return der(0x13, strBytes(s)); }
+  function explicit(tagNo, content) { return der(0xa0 + tagNo, content); }
+  function contextPrimitive(tagNo, content) { return der(0x80 + tagNo, content); }
+  function bitString(payload, unused = 0) { return der(0x03, concat(new Uint8Array([unused]), payload)); }
+  function integerFromBytes(bytes) { let b = new Uint8Array(bytes); while (b.length > 1 && b[0] === 0 && !(b[1] & 0x80)) b = b.slice(1); if (b[0] & 0x80) b = concat(new Uint8Array([0]), b); return der(0x02, b); }
+  function integerNumber(n) { const b=[]; let x=Number(n); if (x === 0) b.push(0); while (x > 0) { b.unshift(x & 255); x = Math.floor(x/256); } return integerFromBytes(new Uint8Array(b)); }
+  function oid(s) { const parts=s.split(".").map(Number); const out=[40*parts[0]+parts[1]]; for(let i=2;i<parts.length;i++){let v=parts[i]; const st=[v&0x7f]; v>>=7; while(v>0){st.unshift((v&0x7f)|0x80); v>>=7;} out.push(...st);} return der(0x06,new Uint8Array(out)); }
+  function oidToString(node) { const bytes=node.content; if (!bytes.length) return ""; const out=[Math.floor(bytes[0]/40), bytes[0]%40]; let v=0; for(let i=1;i<bytes.length;i++){v=(v<<7)|(bytes[i]&0x7f); if(!(bytes[i]&0x80)){out.push(v); v=0;}} return out.join("."); }
+  const ALG_SHA256_RSA = seq(oid("1.2.840.113549.1.1.11"), nul());
+  const ALG_HMAC_SHA256 = seq(oid("1.2.840.113549.2.9"), nul());
+
+  function readASN1(buf, offset=0) {
+    const start=offset; if (offset >= buf.length) throw new Error("ASN.1 越界");
+    const tag=buf[offset++]; let len=buf[offset++];
+    if (len & 0x80) { const n=len&0x7f; len=0; for(let i=0;i<n;i++) len=len*256+buf[offset++]; }
+    const contentStart=offset, end=contentStart+len; if (end > buf.length) throw new Error("ASN.1 长度越界");
+    const node={tag,start,headerLen:contentStart-start,contentStart,end,len,der:buf.slice(start,end),content:buf.slice(contentStart,end),children:[]};
+    if (tag & 0x20) { let p=contentStart; while(p<end){const c=readASN1(buf,p); node.children.push(c); p=c.end;} }
+    return node;
+  }
+  function bitStringPayload(node) { if (node.tag !== 0x03) throw new Error("不是 BIT STRING"); if (node.content[0] !== 0) throw new Error("不支持非零 unused bits"); return node.content.slice(1); }
+  function pemToDer(pemText, expectedLabelPart) {
+    const text = String(pemText || ""); const match = text.match(/-----BEGIN ([^-]+)-----([\s\S]*?)-----END \1-----/);
+    if (!match) throw new Error("无法解析 PEM"); const label = match[1].trim();
+    if (expectedLabelPart && !label.includes(expectedLabelPart)) throw new Error(`PEM 类型不匹配：期望 ${expectedLabelPart}，实际 ${label}`);
+    const bin = atob(match[2].replace(/\s+/g, "")); const out = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i); return { label, der: out };
+  }
+  function pem(label, derBytes) { let bin=""; for(const b of derBytes) bin += String.fromCharCode(b); const b64 = btoa(bin).replace(/(.{64})/g,"$1\n"); return `-----BEGIN ${label}-----\n${b64}${b64.endsWith("\n") ? "" : "\n"}-----END ${label}-----\n`; }
+  function parseTimeNode(node) { const s=dec.decode(node.content); const yy=Number(s.slice(0,2)); const year=yy>=50?1900+yy:2000+yy; return new Date(Date.UTC(year, Number(s.slice(2,4))-1, Number(s.slice(4,6)), Number(s.slice(6,8)), Number(s.slice(8,10)), Number(s.slice(10,12)))); }
+  function certParts(certDer) {
+    const cert=readASN1(certDer); if (cert.tag!==0x30 || cert.children.length<3) throw new Error("证书 ASN.1 格式不正确");
+    const tbs=cert.children[0]; const sigAlg=cert.children[1]; const sigValue=cert.children[2]; const hasVersion=tbs.children[0] && tbs.children[0].tag===0xa0; const idx=hasVersion?1:0;
+    return { tbsDer:tbs.der, signatureOid:oidToString(sigAlg.children[0]), signature:bitStringPayload(sigValue), issuerDer:tbs.children[idx+2].der, validityDer:tbs.children[idx+3].der, subjectDer:tbs.children[idx+4].der, spkiDer:tbs.children[idx+5].der, notBefore:parseTimeNode(tbs.children[idx+3].children[0]), notAfter:parseTimeNode(tbs.children[idx+3].children[1]) };
+  }
+  function decodeAsn1String(node) { return dec.decode(node.content); }
+  function certSubjectText(subjectDer) {
+    const root = readASN1(subjectDer); const attrs=[]; const names={"2.5.4.3":"CN","2.5.4.10":"O","2.5.4.6":"C"};
+    for (const rdn of root.children) { const atv=rdn.children[0]; const k=names[oidToString(atv.children[0])] || oidToString(atv.children[0]); const v=decodeAsn1String(atv.children[1]); attrs.push(`${k}=${v}`); }
+    return attrs.reverse().join(",");
+  }
+  function spkiPublicKeyBits(spkiDer) { return bitStringPayload(readASN1(spkiDer).children[1]); }
+  async function keyIdentifierFromSpki(spkiDer) { return await sha1(spkiPublicKeyBits(spkiDer)); }
+  function assertCertTimeValid(parts, label) { const now=new Date(); if (!(parts.notBefore <= now && now <= parts.notAfter)) throw new Error(`${label} 不在有效期内：${parts.notBefore.toISOString()} ~ ${parts.notAfter.toISOString()}`); }
+  async function verifyCertSignedBy(leafDer, issuerDer, label) {
+    const leaf=certParts(leafDer), issuer=certParts(issuerDer);
+    const pub=await crypto.subtle.importKey("spki", issuer.spkiDer, {name:"RSASSA-PKCS1-v1_5", hash:"SHA-256"}, false, ["verify"]);
+    const ok=await crypto.subtle.verify({name:"RSASSA-PKCS1-v1_5"}, pub, leaf.signature, leaf.tbsDer);
+    if (!ok) throw new Error(`${label} 证书 CA 签名验证失败`); assertCertTimeValid(leaf, label); return leaf;
+  }
+
+  function utcTime(date) { const yy=date.getUTCFullYear()%100; const s=String(yy).padStart(2,"0")+String(date.getUTCMonth()+1).padStart(2,"0")+String(date.getUTCDate()).padStart(2,"0")+String(date.getUTCHours()).padStart(2,"0")+String(date.getUTCMinutes()).padStart(2,"0")+String(date.getUTCSeconds()).padStart(2,"0")+"Z"; return der(0x17,strBytes(s)); }
+  function validity(years) { const nb=new Date(Date.now()-5*60*1000); const na=new Date(Date.now()+Number(years)*365*24*60*60*1000); return seq(utcTime(nb), utcTime(na)); }
+  function makeName(commonName) { return seq(setOf(seq(oid("2.5.4.6"), printable("CN"))), setOf(seq(oid("2.5.4.10"), utf8("Two-Key File Crypto"))), setOf(seq(oid("2.5.4.3"), utf8(commonName)))); }
+  function randomSerial() { const b=new Uint8Array(20); crypto.getRandomValues(b); b[0]&=0x7f; if (b.every(x=>x===0)) b[19]=1; return integerFromBytes(b); }
+  function extension(oidText, valueDer, critical=false) { const parts=[oid(oidText)]; if (critical) parts.push(bool(true)); parts.push(octet(valueDer)); return seq(...parts); }
+  function keyUsageExtension(bits, critical=true) { const maxBit=Math.max(...bits); const byteLen=Math.floor(maxBit/8)+1; const bytes=new Uint8Array(byteLen); for(const bit of bits) bytes[Math.floor(bit/8)] |= 0x80 >> (bit%8); const unused=byteLen*8-maxBit-1; return extension("2.5.29.15", bitString(bytes, unused), critical); }
+  async function authorityExtensions(subjectSpkiDer, issuerSpkiDer) { const ski=await keyIdentifierFromSpki(subjectSpkiDer); const aki=await keyIdentifierFromSpki(issuerSpkiDer); return seq(extension("2.5.29.19", seq(), true), keyUsageExtension([2], true), extension("2.5.29.37", seq(oid("1.3.6.1.5.5.7.3.4")), false), extension("2.5.29.14", octet(ski), false), extension("2.5.29.35", seq(contextPrimitive(0, aki)), false)); }
+  async function buildAuthorityCert({ commonName, authoritySpkiDer, caCertDer, caPrivateKey, years }) {
+    const caParts = certParts(caCertDer); const subjectDer = makeName(commonName); const exts = await authorityExtensions(authoritySpkiDer, caParts.spkiDer);
+    const tbs = seq(explicit(0, integerNumber(2)), randomSerial(), ALG_SHA256_RSA, caParts.subjectDer, validity(years), subjectDer, authoritySpkiDer, der(0xa3, exts));
+    const sig = new Uint8Array(await crypto.subtle.sign({ name:"RSASSA-PKCS1-v1_5" }, caPrivateKey, tbs));
+    return seq(tbs, ALG_SHA256_RSA, bitString(sig));
+  }
+  function stableStringify(value) { if (value === null || typeof value !== "object") return JSON.stringify(value); if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]"; const keys=Object.keys(value).sort(); return "{" + keys.map(k => JSON.stringify(k) + ":" + stableStringify(value[k])).join(",") + "}"; }
+  function signingInput(protectedBytes, ciphertext) { return concat(SIG_PREFIX, u64be(protectedBytes.length), protectedBytes, ciphertext); }
+  function rsaModulusBitLengthFromSpki(spkiDer) { const spki=readASN1(spkiDer); const bs=bitStringPayload(spki.children[1]); const rsaPub=readASN1(bs); let nBytes=rsaPub.children[0].content; while(nBytes.length && nBytes[0]===0) nBytes=nBytes.slice(1); let first=nBytes[0], highBits=0; while(first){highBits++; first >>= 1;} return (nBytes.length-1)*8+highBits; }
+  function pssMaxSaltLength(modulusBits, hashBytes=32) { const emLen=Math.ceil((modulusBits-1)/8); return emLen - hashBytes - 2; }
+  async function deriveCek(k1, k2, envelopeId) { const salt=await sha256(strBytes(envelopeId)); const ikm=concat(k1,k2); const baseKey=await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]); const bits=await crypto.subtle.deriveBits({name:"HKDF", hash:"SHA-256", salt, info:strBytes(HKDF_INFO)}, baseKey, 256); return new Uint8Array(bits); }
+
+  async function decryptEncryptedPKCS8Pem(pemText, password) {
+    const parsed = pemToDer(pemText);
+    if (parsed.label === "PRIVATE KEY") return parsed.der;
+    if (parsed.label !== "ENCRYPTED PRIVATE KEY") throw new Error(`不支持的私钥 PEM 类型：${parsed.label}`);
+    const root = readASN1(parsed.der); const algId = root.children[0]; const encryptedData = root.children[1].content;
+    if (oidToString(algId.children[0]) !== "1.2.840.113549.1.5.13") throw new Error("私钥不是 PBES2 加密 PKCS#8");
+    const pbes2 = algId.children[1]; const kdf = pbes2.children[0]; const encScheme = pbes2.children[1];
+    const kdfParams = kdf.children[1]; const salt = kdfParams.children[0].content; let iterations=0; for (const b of kdfParams.children[1].content) iterations = iterations * 256 + b;
+    let hash = "SHA-1";
+    if (kdfParams.children.length >= 3) { const prfOid = oidToString(kdfParams.children[2].children[0]); if (prfOid === "1.2.840.113549.2.9") hash="SHA-256"; else if (prfOid === "1.2.840.113549.2.7") hash="SHA-1"; else if (prfOid === "1.2.840.113549.2.10") hash="SHA-384"; else if (prfOid === "1.2.840.113549.2.11") hash="SHA-512"; else throw new Error(`不支持的 PBKDF2 PRF OID: ${prfOid}`); }
+    if (oidToString(encScheme.children[0]) !== "2.16.840.1.101.3.4.1.42") throw new Error("私钥加密算法不是 AES-256-CBC");
+    const iv = encScheme.children[1].content;
+    const baseKey = await crypto.subtle.importKey("raw", strBytes(password), "PBKDF2", false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations, hash}, baseKey, {name:"AES-CBC", length:256}, false, ["decrypt"]);
+    return new Uint8Array(await crypto.subtle.decrypt({name:"AES-CBC", iv}, aesKey, encryptedData));
+  }
+  async function encryptPkcs8Pem(privateKey, password, iterations) {
+    const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
+    const salt = new Uint8Array(16); crypto.getRandomValues(salt); const iv = new Uint8Array(16); crypto.getRandomValues(iv);
+    const baseKey = await crypto.subtle.importKey("raw", strBytes(password), "PBKDF2", false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations, hash:"SHA-256"}, baseKey, {name:"AES-CBC", length:256}, false, ["encrypt"]);
+    const encrypted = new Uint8Array(await crypto.subtle.encrypt({name:"AES-CBC", iv}, aesKey, pkcs8));
+    const pbes2Params = seq(seq(oid("1.2.840.113549.1.5.12"), seq(octet(salt), integerNumber(iterations), ALG_HMAC_SHA256)), seq(oid("2.16.840.1.101.3.4.1.42"), octet(iv)));
+    const encryptedInfo = seq(seq(oid("1.2.840.113549.1.5.13"), pbes2Params), octet(encrypted));
+    return pem("ENCRYPTED PRIVATE KEY", encryptedInfo);
+  }
+
+  function safeStem(text) { const s=String(text||"efile").replace(/[^a-zA-Z0-9_.-]+/g,"_").replace(/^[_.-]+|[_.-]+$/g,""); return s || "efile"; }
+  function baseFromEfileName(name) { let n=String(name||"locked.efile"); if (n.endsWith(".efile")) n=n.slice(0,-6); return safeStem(n || "locked"); }
+  function authLabelFor(base, explicit) { const s=safeStem(explicit || base); return s.startsWith("authen_") ? s : "authen_" + s; }
+  function bundleSection(name, content) { return `[${name}]:\n${String(content).trim()}\n`; }
+  function makeDownload(name, textOrBytes, mime="application/octet-stream") { const bytes=typeof textOrBytes==="string" ? strBytes(textOrBytes) : textOrBytes; const blob=new Blob([bytes], {type:mime}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.className="download"; a.textContent=`下载 ${name}`; $("downloadArea").appendChild(a); }
+  function isoUtcNow() { return new Date().toISOString().replace(/\.\d{3}Z$/, "Z"); }
+
+  async function readPlainInput() {
+    const file = $("plainFile").files && $("plainFile").files[0];
+    if (file) { const bytes = new Uint8Array(await file.arrayBuffer()); return { bytes, name: file.name }; }
+    const text = $("plainText").value;
+    if (!text) throw new Error("请选择待加密文件，或输入待加密文本");
+    return { bytes: strBytes(text), name: "text_input.txt" };
+  }
+
+  async function runEncrypt() {
+    clearLog();
+    if (!crypto.subtle) throw new Error("当前浏览器不支持 WebCrypto/SubtleCrypto");
+    parseBundle({ silent: true });
+    const rootPw = $("rootPassword").value, signerPw = $("signerPassword").value, authPw = $("authorityPassword").value;
+    if (!rootPw || !signerPw || !authPw) throw new Error("Root CA、signer、auth 三个口令都不能为空");
+
+    const caCertRes = await readPemResource("caCert", "caCert", "Root CA 证书");
+    const caKeyRes = await readPemResource("caKey", "caKey", "Root CA 私钥");
+    const signerCertRes = await readPemResource("signerCert", "signerCert", "signer 证书");
+    const signerKeyRes = await readPemResource("signerKey", "signerKey", "signer 私钥");
+    const recipientCertRes = await readPemResource("recipientCert", "recipientCert", "recipient 证书");
+    const recipientKeyRes = await readOptionalPemResource("recipientKey", "recipientKey", "recipient 私钥 PEM");
+    const plain = await readPlainInput();
+
+    const caCertDer = pemToDer(caCertRes.text, "CERTIFICATE").der;
+    const signerCertDer = pemToDer(signerCertRes.text, "CERTIFICATE").der;
+    const recipientCertDer = pemToDer(recipientCertRes.text, "CERTIFICATE").der;
+    const caParts = certParts(caCertDer), signerParts = certParts(signerCertDer), recipientParts = certParts(recipientCertDer);
+    assertCertTimeValid(caParts, "Root CA");
+    await verifyCertSignedBy(caCertDer, caCertDer, "Root CA");
+    await verifyCertSignedBy(signerCertDer, caCertDer, "signer");
+    await verifyCertSignedBy(recipientCertDer, caCertDer, "recipient");
+    log("Root CA / signer / recipient 证书基础校验通过。");
+
+    log("正在解密 Root CA 私钥并导入为签发密钥...");
+    const caPkcs8 = await decryptEncryptedPKCS8Pem(caKeyRes.text, rootPw);
+    const caPrivateKey = await crypto.subtle.importKey("pkcs8", caPkcs8, {name:"RSASSA-PKCS1-v1_5", hash:"SHA-256"}, false, ["sign"]);
+    log("正在解密 signer 私钥并导入为 RSA-PSS 签名密钥...");
+    const signerPkcs8 = await decryptEncryptedPKCS8Pem(signerKeyRes.text, signerPw);
+    const signerPrivateKey = await crypto.subtle.importKey("pkcs8", signerPkcs8, {name:"RSA-PSS", hash:"SHA-256"}, false, ["sign"]);
+
+    const rsaBits = Number($("rsaBits").value || 3072);
+    const authYears = Number($("authYears").value || 3);
+    const iterations = Number($("iterations").value || 200000);
+    const efileNameRaw = $("efileName").value.trim() || (plain.name ? baseFromEfileName(plain.name) + ".efile" : "locked.efile");
+    const efileName = efileNameRaw.endsWith(".efile") ? efileNameRaw : efileNameRaw + ".efile";
+    const base = baseFromEfileName(efileName);
+    const authLabel = authLabelFor(base, $("authName").value.trim());
+    const authCN = $("authCN").value.trim() || `Authorization Authority K2 - ${efileName}`;
+
+    log(`正在生成本次 efile 专属 auth 密钥：${authLabel}`);
+    const authorityPair = await crypto.subtle.generateKey({name:"RSA-OAEP", modulusLength:rsaBits, publicExponent:new Uint8Array([1,0,1]), hash:"SHA-256"}, true, ["encrypt", "decrypt"]);
+    const authoritySpki = new Uint8Array(await crypto.subtle.exportKey("spki", authorityPair.publicKey));
+    const authorityCertDer = await buildAuthorityCert({ commonName: authCN, authoritySpkiDer: authoritySpki, caCertDer, caPrivateKey, years: authYears });
+    await verifyCertSignedBy(authorityCertDer, caCertDer, "authority");
+    const authorityCertPem = pem("CERTIFICATE", authorityCertDer);
+    const authorityKeyPem = await encryptPkcs8Pem(authorityPair.privateKey, authPw, iterations);
+    log("auth key/cert 生成并由 Root CA 校验通过。");
+
+    const recipientPub = await crypto.subtle.importKey("spki", recipientParts.spkiDer, {name:"RSA-OAEP", hash:"SHA-256"}, false, ["encrypt"]);
+    const authorityPub = await crypto.subtle.importKey("spki", authoritySpki, {name:"RSA-OAEP", hash:"SHA-256"}, false, ["encrypt"]);
+    const k1 = new Uint8Array(32); const k2 = new Uint8Array(32); crypto.getRandomValues(k1); crypto.getRandomValues(k2);
+    const envelopeIdBytes = new Uint8Array(16); crypto.getRandomValues(envelopeIdBytes); const envelopeId = b64u(envelopeIdBytes);
+    const cekBytes = await deriveCek(k1, k2, envelopeId);
+    const aesKey = await crypto.subtle.importKey("raw", cekBytes, {name:"AES-GCM"}, false, ["encrypt"]);
+    const nonce = new Uint8Array(12); crypto.getRandomValues(nonce);
+    const wrappedK1 = new Uint8Array(await crypto.subtle.encrypt({name:"RSA-OAEP", label:strBytes(OAEP_LABEL_K1)}, recipientPub, k1));
+    const wrappedK2 = new Uint8Array(await crypto.subtle.encrypt({name:"RSA-OAEP", label:strBytes(OAEP_LABEL_K2)}, authorityPub, k2));
+
+    const protectedObj = {
+      format: FORMAT,
+      created_utc: isoUtcNow(),
+      file_name: plain.name,
+      envelope_id: envelopeId,
+      content_alg: CONTENT_ALG,
+      key_wrap_alg: KEY_WRAP_ALG,
+      key_split_alg: KEY_SPLIT_ALG,
+      signature_alg: SIGNATURE_ALG,
+      nonce: b64u(nonce),
+      recipient: { cert_sha256: await sha256Hex(recipientCertDer), subject: certSubjectText(recipientParts.subjectDer), wrapped_k1: b64u(wrappedK1) },
+      authority: { cert_sha256: await sha256Hex(authorityCertDer), subject: certSubjectText(certParts(authorityCertDer).subjectDer), wrapped_k2: b64u(wrappedK2) },
+      signer: { cert_pem: signerCertRes.text.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/)[0] + "\n", cert_sha256: await sha256Hex(signerCertDer), subject: certSubjectText(signerParts.subjectDer) }
+    };
+    const protectedBytes = strBytes(stableStringify(protectedObj));
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv:nonce, additionalData:protectedBytes, tagLength:128}, aesKey, plain.bytes));
+    const saltLength = pssMaxSaltLength(rsaModulusBitLengthFromSpki(signerParts.spkiDer));
+    const signature = new Uint8Array(await crypto.subtle.sign({name:"RSA-PSS", saltLength}, signerPrivateKey, signingInput(protectedBytes, ciphertext)));
+    const envelope = { protected: protectedObj, ciphertext: b64u(ciphertext), signature: b64u(signature) };
+    const efileText = JSON.stringify(envelope, null, 2);
+
+    const efileOnlyBundle = bundleSection("efile", efileText);
+    const authEfileBundle = [
+      bundleSection("efile", efileText),
+      bundleSection("authority.key", authorityKeyPem),
+      bundleSection("authority.cert", authorityCertPem),
+    ].join("\n");
+    const fullDecryptBundleSections = [
+      bundleSection("efile", efileText),
+      bundleSection("root_ca.cert", caCertRes.text),
+      bundleSection("recipient.cert", recipientCertRes.text),
+    ];
+    if (recipientKeyRes) {
+      fullDecryptBundleSections.push(bundleSection("recipient.key", recipientKeyRes.text));
+    }
+    fullDecryptBundleSections.push(
+      bundleSection("authority.key", authorityKeyPem),
+      bundleSection("authority.cert", authorityCertPem),
+    );
+    const mainBundle = fullDecryptBundleSections.join("\n");
+    $("efileOnlyBundle").value = efileOnlyBundle;
+    $("authEfileBundle").value = authEfileBundle;
+    $("mainBundle").value = mainBundle;
+
+    makeDownload(efileName, efileText, "application/json;charset=utf-8");
+    makeDownload(`${authLabel}.key.pem`, authorityKeyPem, "application/x-pem-file");
+    makeDownload(`${authLabel}.cert.pem`, authorityCertPem, "application/x-pem-file");
+    makeDownload(`${authLabel}_efile_bundle.txt`, efileOnlyBundle, "text/plain;charset=utf-8");
+    makeDownload(`${authLabel}_auth_efile_bundle.txt`, authEfileBundle, "text/plain;charset=utf-8");
+    makeDownload(`${authLabel}_decrypt_full_bundle.txt`, mainBundle, "text/plain;charset=utf-8");
+    makeDownload("root_ca.cert.pem", caCertRes.text, "application/x-pem-file");
+    makeDownload("recipient.cert.pem", recipientCertRes.text, "application/x-pem-file");
+    if (recipientKeyRes) {
+      makeDownload("recipient.key.pem", recipientKeyRes.text, "application/x-pem-file");
+    } else {
+      log("注意：解密全套 bundle 当前未包含 recipient.key；解密时需单独提供 recipient 私钥和对应口令。");
+    }
+    log(`加密完成：${efileName}`);
+    log(`auth 文件名：${authLabel}.key.pem / ${authLabel}.cert.pem`);
+  }
+
+  $("parseBundleBtn").addEventListener("click", () => parseBundle({ silent: false }));
+  $("pkiBundle").addEventListener("input", () => parseBundle({ silent: true }));
+  $("encryptBtn").addEventListener("click", () => runEncrypt().catch(err => { log("错误：" + (err && err.message ? err.message : String(err))); console.error(err); }));
+})();
+</script>
+</body>
+</html>
