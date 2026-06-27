@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>二钥 efile 证书生成器</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 18px; line-height: 1.45; }
+    h1 { font-size: 1.35rem; margin: 0 0 12px; }
+    fieldset { border: 1px solid #9995; border-radius: 10px; padding: 12px; margin: 12px 0; }
+    legend { padding: 0 6px; font-weight: 700; }
+    label { display: block; margin: 10px 0 4px; font-weight: 600; }
+    input[type="password"], input[type="text"], input[type="number"], textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #9998; border-radius: 8px; }
+    textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; }
+    button { margin-top: 12px; padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #8881; border-radius: 10px; padding: 12px; min-height: 120px; }
+    .note { font-size: 0.92rem; opacity: 0.85; }
+    .danger { color: #b00020; font-weight: 700; }
+    .ok { color: #007000; font-weight: 700; }
+    a.download { display: inline-block; margin: 8px 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #8882; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>二钥 efile 证书生成器</h1>
+  <p class="note">本页面离线运行；用于替代 <code>01.py</code> 的证书生成部分。生成 Root CA、recipient、signer 三组 key/cert。authority/auth 仍由加密页按每个 efile 自动生成。</p>
+  <p class="note danger">请妥善保存 Root CA 私钥和 signer 私钥。泄露 Root CA 私钥会导致别人可签发新的 auth 证书。</p>
+
+  <fieldset>
+    <legend>1. 密码设置（对标 01.py，三个密码分开）</legend>
+    <label>Root CA 私钥 root_ca.key.pem 口令</label>
+    <input id="rootPassword" type="password" autocomplete="off" />
+    <label>签名私钥 signer.key.pem 口令</label>
+    <input id="signerPassword" type="password" autocomplete="off" />
+    <label>第一把解密私钥 recipient.key.pem 口令</label>
+    <input id="recipientPassword" type="password" autocomplete="off" />
+  </fieldset>
+
+  <fieldset>
+    <legend>2. 证书参数</legend>
+    <div class="grid">
+      <div>
+        <label>Root CA Common Name</label>
+        <input id="rootCN" type="text" value="Two-Key Root CA" />
+      </div>
+      <div>
+        <label>signer Common Name</label>
+        <input id="signerCN" type="text" value="Koala File Signer" />
+      </div>
+      <div>
+        <label>recipient Common Name</label>
+        <input id="recipientCN" type="text" value="File Recipient K1" />
+      </div>
+      <div>
+        <label>RSA 位数</label>
+        <input id="rsaBits" type="number" value="3072" min="2048" step="1024" />
+      </div>
+      <div>
+        <label>Root CA 有效年限</label>
+        <input id="caYears" type="number" value="10" min="1" max="30" />
+      </div>
+      <div>
+        <label>叶子证书有效年限</label>
+        <input id="leafYears" type="number" value="3" min="1" max="20" />
+      </div>
+      <div>
+        <label>PBKDF2 迭代次数（加密私钥用）</label>
+        <input id="iterations" type="number" value="200000" min="10000" step="10000" />
+      </div>
+      <div>
+        <label>输出 bundle 文件名前缀</label>
+        <input id="bundlePrefix" type="text" value="demo_pki" />
+      </div>
+    </div>
+  </fieldset>
+
+  <button id="generateBtn">生成证书和下载文件</button>
+
+  <fieldset>
+    <legend>3. 全量证书文字 bundle</legend>
+    <p class="note">管理员/总备份使用。包含 <code>[root_ca.key]</code>、<code>[root_ca.cert]</code>、<code>[signer.key]</code>、<code>[signer.cert]</code>、<code>[recipient.key]</code>、<code>[recipient.cert]</code>。</p>
+    <textarea id="allBundle" spellcheck="false"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. 加密方需要提前留存的文字 bundle</legend>
+    <p class="note">给加密页 <code>enc.html</code> 使用。默认不包含 <code>[recipient.key]</code>，只包含加密和签发本次 auth 证书所需内容：<code>[root_ca.key]</code>、<code>[root_ca.cert]</code>、<code>[signer.key]</code>、<code>[signer.cert]</code>、<code>[recipient.cert]</code>。</p>
+    <textarea id="encryptorBundle" spellcheck="false"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>5. 解密方文本包</legend>
+    <p class="note">给解密方提前保存。包含解密 K1 所需的 <code>[recipient.key]</code>、<code>[recipient.cert]</code>，以及验签/校验证书链所需的 <code>[root_ca.cert]</code>。不包含 Root CA 私钥和 signer 私钥。</p>
+    <textarea id="decryptorBundle" spellcheck="false"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>6. 下载</legend>
+    <div id="downloadArea"></div>
+  </fieldset>
+
+  <h2>日志</h2>
+  <pre id="log"></pre>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const logEl = $("log");
+
+  function log(msg) { logEl.textContent += msg + "\n"; }
+  function clearLog() { logEl.textContent = ""; $("downloadArea").innerHTML = ""; }
+  function bytesToHex(bytes) { return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(""); }
+  function concat(...parts) { const total = parts.reduce((n,p)=>n+p.length,0); const out = new Uint8Array(total); let off=0; for (const p of parts) { out.set(p, off); off += p.length; } return out; }
+  function strBytes(s) { return enc.encode(String(s)); }
+  async function digest(name, bytes) { return new Uint8Array(await crypto.subtle.digest(name, bytes)); }
+  async function sha1(bytes) { return digest("SHA-1", bytes); }
+
+  function derLen(n) {
+    if (n < 128) return new Uint8Array([n]);
+    const b = [];
+    while (n > 0) { b.unshift(n & 255); n >>= 8; }
+    return new Uint8Array([0x80 | b.length, ...b]);
+  }
+  function der(tag, content) { return concat(new Uint8Array([tag]), derLen(content.length), content); }
+  function seq(...items) { return der(0x30, concat(...items)); }
+  function setOf(...items) { return der(0x31, concat(...items)); }
+  function nul() { return new Uint8Array([0x05, 0x00]); }
+  function bool(v) { return der(0x01, new Uint8Array([v ? 0xff : 0x00])); }
+  function octet(bytes) { return der(0x04, bytes); }
+  function utf8(s) { return der(0x0c, strBytes(s)); }
+  function printable(s) { return der(0x13, strBytes(s)); }
+  function explicit(tagNo, content) { return der(0xa0 + tagNo, content); }
+  function contextPrimitive(tagNo, content) { return der(0x80 + tagNo, content); }
+  function bitString(payload, unused = 0) { return der(0x03, concat(new Uint8Array([unused]), payload)); }
+  function integerFromBytes(bytes) { let b = new Uint8Array(bytes); while (b.length > 1 && b[0] === 0 && !(b[1] & 0x80)) b = b.slice(1); if (b[0] & 0x80) b = concat(new Uint8Array([0]), b); return der(0x02, b); }
+  function integerNumber(n) { const b=[]; let x=Number(n); if (x === 0) b.push(0); while (x > 0) { b.unshift(x & 255); x = Math.floor(x / 256); } return integerFromBytes(new Uint8Array(b)); }
+  function oid(s) {
+    const parts = s.split(".").map(Number);
+    const out = [40 * parts[0] + parts[1]];
+    for (let i = 2; i < parts.length; i++) {
+      let v = parts[i]; const stack = [v & 0x7f]; v >>= 7;
+      while (v > 0) { stack.unshift((v & 0x7f) | 0x80); v >>= 7; }
+      out.push(...stack);
+    }
+    return der(0x06, new Uint8Array(out));
+  }
+  const ALG_SHA256_RSA = seq(oid("1.2.840.113549.1.1.11"), nul());
+  const ALG_HMAC_SHA256 = seq(oid("1.2.840.113549.2.9"), nul());
+
+  function utcTime(date) {
+    const yy = date.getUTCFullYear() % 100;
+    const s = String(yy).padStart(2,"0") + String(date.getUTCMonth()+1).padStart(2,"0") + String(date.getUTCDate()).padStart(2,"0") + String(date.getUTCHours()).padStart(2,"0") + String(date.getUTCMinutes()).padStart(2,"0") + String(date.getUTCSeconds()).padStart(2,"0") + "Z";
+    return der(0x17, strBytes(s));
+  }
+  function validity(years) {
+    const nb = new Date(Date.now() - 5 * 60 * 1000);
+    const na = new Date(Date.now() + Number(years) * 365 * 24 * 60 * 60 * 1000);
+    return seq(utcTime(nb), utcTime(na));
+  }
+  function makeName(commonName) {
+    return seq(
+      setOf(seq(oid("2.5.4.6"), printable("CN"))),
+      setOf(seq(oid("2.5.4.10"), utf8("Two-Key File Crypto"))),
+      setOf(seq(oid("2.5.4.3"), utf8(commonName)))
+    );
+  }
+  function randomSerial() { const b = new Uint8Array(20); crypto.getRandomValues(b); b[0] &= 0x7f; if (b.every(x => x === 0)) b[19] = 1; return integerFromBytes(b); }
+
+  function readASN1(buf, offset = 0) {
+    const start = offset;
+    const tag = buf[offset++];
+    let len = buf[offset++];
+    if (len & 0x80) { const n = len & 0x7f; len = 0; for (let i=0;i<n;i++) len = len * 256 + buf[offset++]; }
+    const contentStart = offset, end = contentStart + len;
+    const node = { tag, start, headerLen: contentStart-start, contentStart, end, len, der: buf.slice(start,end), content: buf.slice(contentStart,end), children: [] };
+    if (tag & 0x20) { let p = contentStart; while (p < end) { const c = readASN1(buf,p); node.children.push(c); p = c.end; } }
+    return node;
+  }
+  function bitStringPayload(node) { if (node.tag !== 0x03) throw new Error("不是 BIT STRING"); if (node.content[0] !== 0) throw new Error("不支持带 unused bits 的 SPKI BIT STRING"); return node.content.slice(1); }
+  function spkiPublicKeyBits(spkiDer) { const spki = readASN1(spkiDer); return bitStringPayload(spki.children[1]); }
+  async function keyIdentifierFromSpki(spkiDer) { return await sha1(spkiPublicKeyBits(spkiDer)); }
+
+  function keyUsageExtension(bits, critical = true) {
+    const maxBit = Math.max(...bits);
+    const byteLen = Math.floor(maxBit / 8) + 1;
+    const bytes = new Uint8Array(byteLen);
+    for (const bit of bits) bytes[Math.floor(bit / 8)] |= 0x80 >> (bit % 8);
+    const unused = byteLen * 8 - maxBit - 1;
+    return extension("2.5.29.15", bitString(bytes, unused), critical);
+  }
+  function extension(oidText, valueDer, critical = false) {
+    const parts = [oid(oidText)];
+    if (critical) parts.push(bool(true));
+    parts.push(octet(valueDer));
+    return seq(...parts);
+  }
+  async function extensionsFor({ role, subjectSpkiDer, issuerSpkiDer }) {
+    const ski = await keyIdentifierFromSpki(subjectSpkiDer);
+    const out = [];
+    if (role === "root") {
+      out.push(extension("2.5.29.19", seq(bool(true)), true));
+      out.push(keyUsageExtension([5,6], true));
+      out.push(extension("2.5.29.14", octet(ski), false));
+      return seq(...out);
+    }
+    out.push(extension("2.5.29.19", seq(), true));
+    if (role === "signer") {
+      out.push(keyUsageExtension([0], true));
+      out.push(extension("2.5.29.37", seq(oid("1.3.6.1.5.5.7.3.3")), false));
+    } else {
+      out.push(keyUsageExtension([2], true));
+      out.push(extension("2.5.29.37", seq(oid("1.3.6.1.5.5.7.3.4")), false));
+    }
+    out.push(extension("2.5.29.14", octet(ski), false));
+    const aki = await keyIdentifierFromSpki(issuerSpkiDer);
+    out.push(extension("2.5.29.35", seq(contextPrimitive(0, aki)), false));
+    return seq(...out);
+  }
+  async function buildCert({ subjectDer, issuerDer, publicSpkiDer, issuerSpkiDer, signerPrivateKey, years, role }) {
+    const exts = await extensionsFor({ role, subjectSpkiDer: publicSpkiDer, issuerSpkiDer });
+    const tbs = seq(
+      explicit(0, integerNumber(2)),
+      randomSerial(),
+      ALG_SHA256_RSA,
+      issuerDer,
+      validity(years),
+      subjectDer,
+      publicSpkiDer,
+      der(0xa3, exts)
+    );
+    const sig = new Uint8Array(await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, signerPrivateKey, tbs));
+    return seq(tbs, ALG_SHA256_RSA, bitString(sig));
+  }
+
+  function pem(label, derBytes) {
+    const bin = Array.from(derBytes, b => String.fromCharCode(b)).join("");
+    const b64 = btoa(bin).replace(/(.{64})/g, "$1\n");
+    return `-----BEGIN ${label}-----\n${b64}${b64.endsWith("\n") ? "" : "\n"}-----END ${label}-----\n`;
+  }
+  function bundleSection(name, content) { return `[${name}]:\n${String(content).trim()}\n`; }
+  function safeName(s) { return String(s || "demo_pki").replace(/[^a-zA-Z0-9_.-]+/g, "_").replace(/^[_\-.]+|[_\-.]+$/g, "") || "demo_pki"; }
+
+  async function encryptPkcs8Pem(privateKey, password, iterations) {
+    const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
+    const salt = new Uint8Array(16); crypto.getRandomValues(salt);
+    const iv = new Uint8Array(16); crypto.getRandomValues(iv);
+    const baseKey = await crypto.subtle.importKey("raw", strBytes(password), "PBKDF2", false, ["deriveKey"]);
+    const aesKey = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, baseKey, { name: "AES-CBC", length: 256 }, false, ["encrypt"]);
+    const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, aesKey, pkcs8));
+    const pbes2Params = seq(
+      seq(oid("1.2.840.113549.1.5.12"), seq(octet(salt), integerNumber(iterations), ALG_HMAC_SHA256)),
+      seq(oid("2.16.840.1.101.3.4.1.42"), octet(iv))
+    );
+    const alg = seq(oid("1.2.840.113549.1.5.13"), pbes2Params);
+    const encryptedInfo = seq(alg, octet(encrypted));
+    return pem("ENCRYPTED PRIVATE KEY", encryptedInfo);
+  }
+  function makeDownload(name, textOrBytes, mime = "application/octet-stream") {
+    const bytes = typeof textOrBytes === "string" ? strBytes(textOrBytes) : textOrBytes;
+    const blob = new Blob([bytes], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.className = "download";
+    a.textContent = `下载 ${name}`;
+    $("downloadArea").appendChild(a);
+  }
+
+  async function generate() {
+    clearLog();
+    if (!crypto.subtle) throw new Error("当前浏览器不支持 WebCrypto/SubtleCrypto");
+    const rootPw = $("rootPassword").value;
+    const signerPw = $("signerPassword").value;
+    const recipientPw = $("recipientPassword").value;
+    if (!rootPw || !signerPw || !recipientPw) throw new Error("三个私钥口令都不能为空");
+    const rsaBits = Number($("rsaBits").value || 3072);
+    const caYears = Number($("caYears").value || 10);
+    const leafYears = Number($("leafYears").value || 3);
+    const iterations = Number($("iterations").value || 200000);
+    const prefix = safeName($("bundlePrefix").value || "demo_pki");
+
+    log(`开始生成 RSA-${rsaBits} Root CA / signer / recipient...`);
+    const rootPair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: rsaBits, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["sign", "verify"]);
+    const signerPair = await crypto.subtle.generateKey({ name: "RSA-PSS", modulusLength: rsaBits, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["sign", "verify"]);
+    const recipientPair = await crypto.subtle.generateKey({ name: "RSA-OAEP", modulusLength: rsaBits, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["encrypt", "decrypt"]);
+    log("密钥生成完成，正在签发 X.509 证书...");
+
+    const rootSpki = new Uint8Array(await crypto.subtle.exportKey("spki", rootPair.publicKey));
+    const signerSpki = new Uint8Array(await crypto.subtle.exportKey("spki", signerPair.publicKey));
+    const recipientSpki = new Uint8Array(await crypto.subtle.exportKey("spki", recipientPair.publicKey));
+    const rootName = makeName($("rootCN").value || "Two-Key Root CA");
+    const signerName = makeName($("signerCN").value || "Koala File Signer");
+    const recipientName = makeName($("recipientCN").value || "File Recipient K1");
+
+    const rootCertDer = await buildCert({ subjectDer: rootName, issuerDer: rootName, publicSpkiDer: rootSpki, issuerSpkiDer: rootSpki, signerPrivateKey: rootPair.privateKey, years: caYears, role: "root" });
+    const signerCertDer = await buildCert({ subjectDer: signerName, issuerDer: rootName, publicSpkiDer: signerSpki, issuerSpkiDer: rootSpki, signerPrivateKey: rootPair.privateKey, years: leafYears, role: "signer" });
+    const recipientCertDer = await buildCert({ subjectDer: recipientName, issuerDer: rootName, publicSpkiDer: recipientSpki, issuerSpkiDer: rootSpki, signerPrivateKey: rootPair.privateKey, years: leafYears, role: "recipient" });
+
+    const rootKeyPem = await encryptPkcs8Pem(rootPair.privateKey, rootPw, iterations);
+    const signerKeyPem = await encryptPkcs8Pem(signerPair.privateKey, signerPw, iterations);
+    const recipientKeyPem = await encryptPkcs8Pem(recipientPair.privateKey, recipientPw, iterations);
+    const rootCertPem = pem("CERTIFICATE", rootCertDer);
+    const signerCertPem = pem("CERTIFICATE", signerCertDer);
+    const recipientCertPem = pem("CERTIFICATE", recipientCertDer);
+
+    const allBundle = [
+      bundleSection("root_ca.key", rootKeyPem),
+      bundleSection("root_ca.cert", rootCertPem),
+      bundleSection("signer.key", signerKeyPem),
+      bundleSection("signer.cert", signerCertPem),
+      bundleSection("recipient.key", recipientKeyPem),
+      bundleSection("recipient.cert", recipientCertPem),
+    ].join("\n");
+    const encryptorBundle = [
+      bundleSection("root_ca.key", rootKeyPem),
+      bundleSection("root_ca.cert", rootCertPem),
+      bundleSection("signer.key", signerKeyPem),
+      bundleSection("signer.cert", signerCertPem),
+      bundleSection("recipient.cert", recipientCertPem),
+    ].join("\n");
+    const decryptorBundle = [
+      bundleSection("root_ca.cert", rootCertPem),
+      bundleSection("recipient.key", recipientKeyPem),
+      bundleSection("recipient.cert", recipientCertPem),
+    ].join("\n");
+    $("allBundle").value = allBundle;
+    $("encryptorBundle").value = encryptorBundle;
+    $("decryptorBundle").value = decryptorBundle;
+
+    makeDownload("root_ca.key.pem", rootKeyPem, "application/x-pem-file");
+    makeDownload("root_ca.cert.pem", rootCertPem, "application/x-pem-file");
+    makeDownload("signer.key.pem", signerKeyPem, "application/x-pem-file");
+    makeDownload("signer.cert.pem", signerCertPem, "application/x-pem-file");
+    makeDownload("recipient.key.pem", recipientKeyPem, "application/x-pem-file");
+    makeDownload("recipient.cert.pem", recipientCertPem, "application/x-pem-file");
+    makeDownload(`${prefix}_pki_bundle.txt`, allBundle, "text/plain;charset=utf-8");
+    makeDownload(`${prefix}_encryptor_bundle.txt`, encryptorBundle, "text/plain;charset=utf-8");
+    makeDownload(`${prefix}_decryptor_bundle.txt`, decryptorBundle, "text/plain;charset=utf-8");
+    log("完成。已生成全量证书文字 bundle、加密方提前留存 bundle、解密方文本包和各 PEM 下载链接。");
+  }
+
+  $("generateBtn").addEventListener("click", () => generate().catch(err => { log("错误：" + (err && err.message ? err.message : String(err))); console.error(err); }));
+})();
+</script>
+</body>
+</html>
