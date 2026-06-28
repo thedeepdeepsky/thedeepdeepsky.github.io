@@ -1,6 +1,8 @@
-<html lang="zh-CN"><head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>二钥 efile 浏览器解密器</title>
   <style>
     :root { color-scheme: light dark; }
@@ -28,7 +30,7 @@
   <fieldset>
     <legend>1. 加密文件</legend>
     <label>.efile 文件</label>
-    <input id="efile" type="file" accept=".efile,application/json,text/json">
+    <input id="efile" type="file" accept=".efile,application/json,text/json" />
     <label>.efile 文本包，可替代上面的 .efile 文件上传</label>
     <p class="note">支持 <code>[efile]:</code>、<code>[locked.efile]:</code> 等分段；如果这里填写，会优先于文件选择框。</p>
     <textarea id="efileBundle" spellcheck="false" placeholder="[efile]:
@@ -44,19 +46,19 @@
   <fieldset>
     <legend>2. 信任根和两把解密证书</legend>
     <label>Root CA 证书：root_ca.cert.pem</label>
-    <input id="caCert" type="file" accept=".pem,.crt,.cert">
+    <input id="caCert" type="file" accept=".pem,.crt,.cert" />
     <label>Recipient 证书：recipient.cert.pem</label>
-    <input id="recipientCert" type="file" accept=".pem,.crt,.cert">
+    <input id="recipientCert" type="file" accept=".pem,.crt,.cert" />
     <label>Recipient 加密私钥：recipient.key.pem</label>
-    <input id="recipientKey" type="file" accept=".pem,.key">
+    <input id="recipientKey" type="file" accept=".pem,.key" />
     <label>Recipient 私钥口令</label>
-    <input id="recipientPassword" type="password" autocomplete="off">
+    <input id="recipientPassword" type="password" autocomplete="off" />
     <label>Authority 证书：authority.cert.pem</label>
-    <input id="authorityCert" type="file" accept=".pem,.crt,.cert">
+    <input id="authorityCert" type="file" accept=".pem,.crt,.cert" />
     <label>Authority 加密私钥：authority.key.pem</label>
-    <input id="authorityKey" type="file" accept=".pem,.key">
+    <input id="authorityKey" type="file" accept=".pem,.key" />
     <label>Authority 私钥口令</label>
-    <input id="authorityPassword" type="password" autocomplete="off">
+    <input id="authorityPassword" type="password" autocomplete="off" />
   </fieldset>
 
   <fieldset>
@@ -93,11 +95,19 @@
   <fieldset>
     <legend>4. 可选：指定 signer 指纹 pinning</legend>
     <label>expected signer SHA-256 指纹，可留空</label>
-    <input id="expectedSigner" type="text" placeholder="例如 61c0589b...">
+    <input id="expectedSigner" type="text" placeholder="例如 61c0589b..." />
   </fieldset>
 
   <button id="decryptBtn">验签并解密</button>
   <div id="downloadArea"></div>
+
+  <fieldset>
+    <legend>5. 解密内容</legend>
+    <label>解密文字 txt 版</label>
+    <textarea id="plaintextText" spellcheck="false" readonly placeholder="解密成功后，如果明文可按 UTF-8 文本解析，会显示在这里。"></textarea>
+    <p id="plaintextStatus" class="note">尚未解密。</p>
+  </fieldset>
+
   <h2>日志</h2>
   <pre id="log"></pre>
 
@@ -284,6 +294,8 @@
   function clearLog() {
     logEl.textContent = "";
     $("downloadArea").innerHTML = "";
+    if ($("plaintextText")) $("plaintextText").value = "";
+    if ($("plaintextStatus")) $("plaintextStatus").textContent = "尚未解密。";
   }
 
   async function readFileBytes(inputId, label) {
@@ -644,17 +656,60 @@
     return originalName.slice(0, dot) + ".dec" + originalName.slice(dot);
   }
 
-  function offerDownload(bytes, filename) {
-    const blob = new Blob([bytes], { type: "application/octet-stream" });
+  function appendDownloadLink(blob, filename, text) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.className = "download";
-    a.textContent = `下载解密文件：${filename}`;
+    a.textContent = text;
     const area = $("downloadArea");
-    area.innerHTML = "";
+    if (area.children.length) area.appendChild(document.createTextNode(" "));
     area.appendChild(a);
+  }
+
+  function offerDownload(bytes, filename) {
+    const blob = new Blob([bytes], { type: "application/octet-stream" });
+    appendDownloadLink(blob, filename, `下载解密文件：${filename}`);
+  }
+
+  function outputTextName(originalName) {
+    const decName = outputName(originalName || "decrypted.bin");
+    if (/\.txt$/i.test(decName)) return decName;
+    const dot = decName.lastIndexOf(".");
+    if (dot <= 0) return decName + ".txt";
+    return decName.slice(0, dot) + ".txt";
+  }
+
+  function offerTextDownload(text, filename) {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    appendDownloadLink(blob, filename, `下载解密文字 TXT：${filename}`);
+  }
+
+  function showPlaintextTxt(bytes, originalName) {
+    const textArea = $("plaintextText");
+    const statusEl = $("plaintextStatus");
+    if (!textArea) return;
+
+    let text;
+    let strictUtf8 = true;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch (err) {
+      strictUtf8 = false;
+      text = dec.decode(bytes);
+    }
+
+    textArea.value = text;
+    const txtName = outputTextName(originalName || "decrypted.bin");
+    offerTextDownload(text, txtName);
+
+    if (statusEl) {
+      statusEl.textContent = strictUtf8
+        ? `已生成解密文字 txt 版：${txtName}，共 ${bytes.length} bytes / ${text.length} 字符。`
+        : `明文不是严格 UTF-8；已尝试生成 txt 版：${txtName}。如果原文是二进制文件，此处可能不是可读文本。`;
+    }
+    log(`已生成解密文字 txt 版：${txtName}`);
   }
 
   async function run() {
@@ -737,8 +792,10 @@
     const plaintext = await decryptPlaintext(aesKey, b64UrlToBytes(protectedObj.nonce), ciphertext, sigCheck.protectedBytes);
     log(`解密成功：明文 ${plaintext.length} bytes。`);
 
-    const name = outputName(protectedObj.file_name || "decrypted.bin");
+    const originalName = protectedObj.file_name || "decrypted.bin";
+    const name = outputName(originalName);
     offerDownload(plaintext, name);
+    showPlaintextTxt(plaintext, originalName);
     log(`已生成下载链接：${name}`);
   }
 
@@ -768,7 +825,6 @@
   });
 })();
 </script>
-<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;7939e04a4baf43c8b86a560f74aac60e&quot;,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
-
-
-</body></html>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
